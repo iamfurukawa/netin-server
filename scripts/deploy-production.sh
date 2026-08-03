@@ -8,7 +8,8 @@ if [[ ! -d "$deploy_dir/.git" ]]; then
   exit 1
 fi
 
-if [[ -n "$(git -C "$deploy_dir" status --porcelain)" ]]; then
+local_changes="$(git -C "$deploy_dir" status --porcelain --untracked-files=all | grep -vE '^\?\? \.env\.production$' || true)"
+if [[ -n "$local_changes" ]]; then
   echo "O diretorio de deploy contem alteracoes locais; resolva-as antes do deploy." >&2
   exit 1
 fi
