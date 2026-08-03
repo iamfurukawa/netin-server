@@ -1,0 +1,21 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: netin-mosquitto
+    restart: unless-stopped
+    volumes:
+      - ./infra/mosquitto/mosquitto.production.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./secrets/mosquitto/passwordfile:/mosquitto/config/passwordfile:ro
+      - ./secrets/mosquitto/aclfile:/mosquitto/config/aclfile:ro
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+    networks:
+      - nginxnet
+
+volumes:
+  mosquitto-data:
+  mosquitto-log:
+
+networks:
+  nginxnet:
+    external: true

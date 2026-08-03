@@ -1,0 +1,19 @@
+services:
+  netin-server:
+    container_name: netin-server
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+    networks:
+      - nginxnet
+
+networks:
+  nginxnet:
+    external: true
