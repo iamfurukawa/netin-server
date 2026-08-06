@@ -3,6 +3,7 @@ import cookie from "@fastify/cookie";
 import Fastify from "fastify";
 
 import { registerAuthRoutes } from "./modules/auth/auth.routes.js";
+import { registerDeviceRoutes } from "./modules/devices/device.routes.js";
 import type { Environment } from "./config.js";
 import { createDatabase, type DatabaseConnection } from "./db/client.js";
 
@@ -22,6 +23,7 @@ export function createApp(
   app.get("/health", async () => ({ status: "ok" }));
   void app.register(async (instance) => {
     await registerAuthRoutes(instance, database, environment);
+    await registerDeviceRoutes(instance, database);
   });
 
   app.addHook("onClose", async () => {

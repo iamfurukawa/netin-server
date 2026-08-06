@@ -5,7 +5,7 @@ import { createApp } from "../src/app.js";
 import type { Environment } from "../src/config.js";
 import { createDatabase } from "../src/db/client.js";
 import { runMigrations } from "../src/db/migrate.js";
-import { sessions, users } from "../src/db/schema.js";
+import { devices, pairingCodes, sessions, users } from "../src/db/schema.js";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 
@@ -29,6 +29,8 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
   await runMigrations(environment);
 
   const database = createDatabase(environment);
+  await database.db.delete(pairingCodes);
+  await database.db.delete(devices);
   await database.db.delete(sessions);
   await database.db.delete(users);
   const app = createApp(environment, database);
@@ -60,6 +62,40 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
     });
     assert.equal(currentUser.statusCode, 200);
     assert.equal(currentUser.json().user.email, "ana@example.com");
+
+    const deviceId = "7e8c3c74-faa2-40a9-8fa9-aa1c25c61c90";
+    const bootstrapSecret = "D2cfyjmFtuvDDvhhxu1LFEDkaqUON9sHTA0hm1Bf";
+    const deviceRegistration = await app.inject({
+      method: "POST",
+      url: "/device/register",
+      payload: { deviceId, bootstrapSecret, hardwareTarget: "esp32-2432s024" },
+    });
+    assert.equal(deviceRegistration.statusCode, 201);
+
+    const pairingCode = await app.inject({
+      method: "POST",
+      url: "/device/pairing-code",
+      payload: { deviceId, bootstrapSecret },
+    });
+    assert.equal(pairingCode.statusCode, 200);
+    assert.match(pairingCode.json().code, /^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+
+    const paired = await app.inject({
+      method: "POST",
+      url: "/devices/pair",
+      headers: { cookie: registrationCookie },
+      payload: { code: pairingCode.json().code },
+    });
+    assert.equal(paired.statusCode, 201);
+    assert.equal(paired.json().device.id, deviceId);
+
+    const listed = await app.inject({ method: "GET", url: "/devices", headers: { cookie: registrationCookie } });
+    assert.equal(listed.statusCode, 200);
+    assert.equal(listed.json().devices.length, 1);
+    assert.equal(listed.json().devices[0].hardwareTarget, "esp32-2432s024");
+
+    const removed = await app.inject({ method: "DELETE", url: `/devices/${deviceId}`, headers: { cookie: registrationCookie } });
+    assert.equal(removed.statusCode, 204);
 
     const duplicate = await app.inject({
       method: "POST",
