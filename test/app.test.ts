@@ -16,5 +16,9 @@ test("GET /health returns the service status", async () => {
 
   assert.equal(response.statusCode, 200);
   assert.deepEqual(response.json(), { status: "ok" });
+
+  const unauthenticated = await app.inject({ method: "GET", url: "/auth/me" });
+  assert.equal(unauthenticated.statusCode, 401);
+  assert.deepEqual(unauthenticated.json(), { error: "unauthenticated" });
   await app.close();
 });

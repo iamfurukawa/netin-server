@@ -21,11 +21,20 @@ fi
 
 git -C "$deploy_dir" pull --ff-only origin main
 cd "$deploy_dir"
-docker compose -f docker-compose.production.yml up -d --build --remove-orphans
+docker compose -f docker-compose.production.yml build
+docker compose -f docker-compose.production.yml run --rm netin-server npm run migrate
+docker compose -f docker-compose.production.yml up -d
 
 for attempt in {1..15}; do
-  if curl --fail --silent --show-error http://localhost:3000/health >/dev/null; then
-    echo "Deploy concluido e health check aprovado."
+  if docker compose -f docker-compose.production.yml exec -T netin-server node -e '
+    (async () => {
+      const response = await fetch("http://127.0.0.1:3000/health");
+      if (!response.ok) process.exit(1);
+      const body = await response.json();
+      if (body.status !== "ok") process.exit(1);
+    })().catch(() => process.exit(1));
+  '; then
+    echo "Deploy concluido e health check do container aprovado."
     exit 0
   fi
   sleep 2
