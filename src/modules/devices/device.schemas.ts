@@ -11,6 +11,8 @@ export const issuePairingCodeSchema = z.object({
   bootstrapSecret: z.string().min(32).max(128),
 });
 
+export const deviceBootstrapSchema = issuePairingCodeSchema;
+
 export const pairDeviceSchema = z.object({
   code: z.string().trim().toUpperCase().regex(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/),
 });

@@ -2,8 +2,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import type { Database } from "../../db/client.js";
 import { currentUser } from "../auth/auth.service.js";
-import { issuePairingCodeSchema, pairDeviceSchema, registerDeviceSchema } from "./device.schemas.js";
-import { DeviceAlreadyPairedError, DeviceAuthenticationError, issuePairingCode, listDevices, PairingCodeError, pairDevice, registerDevice, removeDevice } from "./device.service.js";
+import { deviceBootstrapSchema, issuePairingCodeSchema, pairDeviceSchema, registerDeviceSchema } from "./device.schemas.js";
+import { DeviceAlreadyPairedError, DeviceAuthenticationError, DeviceNotPairedError, issueDeviceCredential, issuePairingCode, listDevices, pairingStatus, PairingCodeError, pairDevice, registerDevice, removeDevice } from "./device.service.js";
 
 const sessionCookie = "netin_session";
 
@@ -35,6 +35,25 @@ export async function registerDeviceRoutes(app: FastifyInstance, database: Datab
     } catch (error) {
       if (error instanceof DeviceAuthenticationError) return reply.code(401).send({ error: "invalid_device_credentials" });
       if (error instanceof DeviceAlreadyPairedError) return reply.code(409).send({ error: "device_already_paired" });
+      throw error;
+    }
+  });
+
+  app.post("/device/pairing-status", async (request, reply) => {
+    try {
+      return await pairingStatus(database, deviceBootstrapSchema.parse(request.body));
+    } catch (error) {
+      if (error instanceof DeviceAuthenticationError) return reply.code(401).send({ error: "invalid_device_credentials" });
+      throw error;
+    }
+  });
+
+  app.post("/device/credential", async (request, reply) => {
+    try {
+      return await issueDeviceCredential(database, deviceBootstrapSchema.parse(request.body));
+    } catch (error) {
+      if (error instanceof DeviceAuthenticationError) return reply.code(401).send({ error: "invalid_device_credentials" });
+      if (error instanceof DeviceNotPairedError) return reply.code(409).send({ error: "device_not_paired" });
       throw error;
     }
   });

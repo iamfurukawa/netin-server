@@ -32,6 +32,8 @@ export const devices = pgTable("devices", {
   ownerUserId: uuid("owner_user_id").references(() => users.id, { onDelete: "set null" }),
   hardwareTarget: text("hardware_target").notNull(),
   bootstrapSecretHash: text("bootstrap_secret_hash").notNull(),
+  deviceCredentialHash: text("device_credential_hash"),
+  deviceCredentialIssuedAt: timestamp("device_credential_issued_at", { withTimezone: true }),
   pairedAt: timestamp("paired_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 
 import type { Database } from "../../db/client.js";
 import { hashPassword, verifyPassword } from "../auth/auth.service.js";
-import { createDevice, findDevice, listDevicesForOwner, pairDeviceByCode, replacePairingCode, unpairDevice } from "./device.repository.js";
+import { createDevice, findDevice, listDevicesForOwner, pairDeviceByCode, replacePairingCode, setDeviceCredential, unpairDevice } from "./device.repository.js";
 
 const pairingCodeLifetimeMs = 10 * 60 * 1000;
 const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -10,9 +10,14 @@ const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 export class DeviceAuthenticationError extends Error {}
 export class DeviceAlreadyPairedError extends Error {}
 export class PairingCodeError extends Error {}
+export class DeviceNotPairedError extends Error {}
 
 function hashCode(code: string) {
   return createHash("sha256").update(code).digest("base64url");
+}
+
+function hashCredential(credential: string) {
+  return createHash("sha256").update(credential).digest("base64url");
 }
 
 function createPairingCode() {
@@ -49,6 +54,19 @@ export async function issuePairingCode(database: Database, input: { deviceId: st
   const expiresAt = new Date(Date.now() + pairingCodeLifetimeMs);
   await replacePairingCode(database, device.id, hashCode(code), expiresAt);
   return { code, expiresAt };
+}
+
+export async function pairingStatus(database: Database, input: { deviceId: string; bootstrapSecret: string }) {
+  const device = await authenticateDevice(database, input.deviceId, input.bootstrapSecret);
+  return { paired: Boolean(device.ownerUserId) };
+}
+
+export async function issueDeviceCredential(database: Database, input: { deviceId: string; bootstrapSecret: string }) {
+  const device = await authenticateDevice(database, input.deviceId, input.bootstrapSecret);
+  if (!device.ownerUserId) throw new DeviceNotPairedError();
+  const credential = randomBytes(32).toString("base64url");
+  await setDeviceCredential(database, device.id, hashCredential(credential));
+  return { credential };
 }
 
 export async function pairDevice(database: Database, ownerUserId: string, code: string) {

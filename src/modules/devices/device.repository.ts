@@ -49,10 +49,18 @@ export async function pairDeviceByCode(database: Database, ownerUserId: string, 
 export async function unpairDevice(database: Database, ownerUserId: string, deviceId: string) {
   return database.transaction(async (transaction) => {
     const [device] = await transaction.update(devices)
-      .set({ ownerUserId: null, pairedAt: null, updatedAt: new Date() })
+      .set({ ownerUserId: null, pairedAt: null, deviceCredentialHash: null, deviceCredentialIssuedAt: null, updatedAt: new Date() })
       .where(and(eq(devices.id, deviceId), eq(devices.ownerUserId, ownerUserId)))
       .returning();
     if (device) await transaction.delete(pairingCodes).where(eq(pairingCodes.deviceId, deviceId));
     return device ?? null;
   });
+}
+
+export async function setDeviceCredential(database: Database, deviceId: string, credentialHash: string) {
+  await database.update(devices).set({
+    deviceCredentialHash: credentialHash,
+    deviceCredentialIssuedAt: new Date(),
+    updatedAt: new Date(),
+  }).where(eq(devices.id, deviceId));
 }

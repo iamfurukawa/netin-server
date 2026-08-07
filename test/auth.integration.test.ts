@@ -89,6 +89,22 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
     assert.equal(paired.statusCode, 201);
     assert.equal(paired.json().device.id, deviceId);
 
+    const pairingStatus = await app.inject({
+      method: "POST",
+      url: "/device/pairing-status",
+      payload: { deviceId, bootstrapSecret },
+    });
+    assert.equal(pairingStatus.statusCode, 200);
+    assert.deepEqual(pairingStatus.json(), { paired: true });
+
+    const deviceCredential = await app.inject({
+      method: "POST",
+      url: "/device/credential",
+      payload: { deviceId, bootstrapSecret },
+    });
+    assert.equal(deviceCredential.statusCode, 200);
+    assert.match(deviceCredential.json().credential, /^[A-Za-z0-9_-]{43}$/);
+
     const listed = await app.inject({ method: "GET", url: "/devices", headers: { cookie: registrationCookie } });
     assert.equal(listed.statusCode, 200);
     assert.equal(listed.json().devices.length, 1);
@@ -96,6 +112,14 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
 
     const removed = await app.inject({ method: "DELETE", url: `/devices/${deviceId}`, headers: { cookie: registrationCookie } });
     assert.equal(removed.statusCode, 204);
+
+    const revokedCredential = await app.inject({
+      method: "POST",
+      url: "/device/credential",
+      payload: { deviceId, bootstrapSecret },
+    });
+    assert.equal(revokedCredential.statusCode, 409);
+    assert.deepEqual(revokedCredential.json(), { error: "device_not_paired" });
 
     const duplicate = await app.inject({
       method: "POST",
