@@ -5,7 +5,8 @@ import { createApp } from "../src/app.js";
 import type { Environment } from "../src/config.js";
 import { createDatabase } from "../src/db/client.js";
 import { runMigrations } from "../src/db/migrate.js";
-import { devices, pairingCodes, sessions, users } from "../src/db/schema.js";
+import { eq } from "drizzle-orm";
+import { devices, groupMembers, groups, pairingCodes, sessions, users } from "../src/db/schema.js";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 
@@ -29,6 +30,8 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
   await runMigrations(environment);
 
   const database = createDatabase(environment);
+  await database.db.delete(groupMembers);
+  await database.db.delete(groups);
   await database.db.delete(pairingCodes);
   await database.db.delete(devices);
   await database.db.delete(sessions);
@@ -62,6 +65,38 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
     });
     assert.equal(currentUser.statusCode, 200);
     assert.equal(currentUser.json().user.email, "ana@example.com");
+
+    const ordinaryGroups = await app.inject({ method: "GET", url: "/groups", headers: { cookie: registrationCookie } });
+    assert.equal(ordinaryGroups.statusCode, 200);
+    assert.deepEqual(ordinaryGroups.json().groups, []);
+
+    const forbiddenGroup = await app.inject({
+      method: "POST", url: "/admin/groups", headers: { cookie: registrationCookie }, payload: { name: "Café" },
+    });
+    assert.equal(forbiddenGroup.statusCode, 403);
+
+    await database.db.update(users).set({ isAdmin: true }).where(eq(users.id, registeredUser.id));
+    const adminCookie = cookieFrom(await app.inject({
+      method: "POST", url: "/auth/login", payload: { email: "ana@example.com", password: "correct-horse-battery-staple" },
+    }));
+    const createdGroup = await app.inject({
+      method: "POST", url: "/admin/groups", headers: { cookie: adminCookie }, payload: { name: "Café", registrationsOpen: true },
+    });
+    assert.equal(createdGroup.statusCode, 201);
+    const groupId = createdGroup.json().group.id;
+
+    const joinedGroup = await app.inject({ method: "POST", url: `/groups/${groupId}/join`, headers: { cookie: registrationCookie } });
+    assert.equal(joinedGroup.statusCode, 204);
+    const groupsAfterJoin = await app.inject({ method: "GET", url: "/groups", headers: { cookie: registrationCookie } });
+    assert.deepEqual(groupsAfterJoin.json().groups.map((group: { name: string; joined: boolean }) => ({ name: group.name, joined: group.joined })), [{ name: "Café", joined: true }]);
+
+    const closedGroup = await app.inject({
+      method: "PATCH", url: `/admin/groups/${groupId}`, headers: { cookie: adminCookie }, payload: { registrationsOpen: false },
+    });
+    assert.equal(closedGroup.statusCode, 200);
+    const groupMembersResult = await app.inject({ method: "GET", url: `/admin/groups/${groupId}/members`, headers: { cookie: adminCookie } });
+    assert.equal(groupMembersResult.statusCode, 200);
+    assert.equal(groupMembersResult.json().members.length, 1);
 
     const deviceId = "7e8c3c74-faa2-40a9-8fa9-aa1c25c61c90";
     const bootstrapSecret = "D2cfyjmFtuvDDvhhxu1LFEDkaqUON9sHTA0hm1Bf";

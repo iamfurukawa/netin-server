@@ -63,5 +63,5 @@ export async function currentUser(database: Database, token: string) {
 }
 
 export function toPublicUser(user: UserRecord) {
-  return { id: user.id, email: user.email, displayName: user.displayName, color: user.color };
+  return { id: user.id, email: user.email, displayName: user.displayName, color: user.color, isAdmin: user.isAdmin };
 }
