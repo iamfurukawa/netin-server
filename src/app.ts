@@ -19,6 +19,7 @@ export function createApp(
   void app.register(cors, {
     origin: environment.CORS_ORIGIN,
     credentials: true,
+    methods: ["GET", "HEAD", "POST", "PATCH", "DELETE", "OPTIONS"],
   });
 
   app.get("/health", async () => ({ status: "ok" }));
