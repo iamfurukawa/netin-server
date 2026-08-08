@@ -50,6 +50,12 @@ export async function leaveGroupRecord(database: Database, groupId: string, user
   return deleted.length > 0;
 }
 
+export async function isGroupMember(database: Database, groupId: string, userId: string) {
+  const [member] = await database.select({ userId: groupMembers.userId }).from(groupMembers)
+    .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)));
+  return Boolean(member);
+}
+
 export async function listGroupMembers(database: Database, groupId: string) {
   return database.select({ id: users.id, displayName: users.displayName, email: users.email, joinedAt: groupMembers.createdAt })
     .from(groupMembers).innerJoin(users, eq(users.id, groupMembers.userId))

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, index, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -72,4 +72,26 @@ export const groupMembers = pgTable("group_members", {
 }, (table) => [
   primaryKey({ columns: [table.groupId, table.userId] }),
   index("group_members_user_id_index").on(table.userId),
+]);
+
+export const socialPreferences = pgTable("social_preferences", {
+  userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  interactionsMuted: boolean("interactions_muted").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const socialEvents = pgTable("social_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  senderUserId: uuid("sender_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  groupId: uuid("group_id").notNull().references(() => groups.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  payload: jsonb("payload").notNull(),
+  protocolVersion: integer("protocol_version").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+}, (table) => [
+  index("social_events_group_created_at_index").on(table.groupId, table.createdAt),
+  index("social_events_expires_at_index").on(table.expiresAt),
+  check("social_events_type", sql`${table.type} IN ('reaction', 'message')`),
 ]);

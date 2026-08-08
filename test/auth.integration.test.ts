@@ -6,7 +6,7 @@ import type { Environment } from "../src/config.js";
 import { createDatabase } from "../src/db/client.js";
 import { runMigrations } from "../src/db/migrate.js";
 import { eq } from "drizzle-orm";
-import { devices, groupMembers, groups, pairingCodes, sessions, users } from "../src/db/schema.js";
+import { devices, groupMembers, groups, pairingCodes, sessions, socialEvents, socialPreferences, users } from "../src/db/schema.js";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 
@@ -30,6 +30,8 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
   await runMigrations(environment);
 
   const database = createDatabase(environment);
+  await database.db.delete(socialEvents);
+  await database.db.delete(socialPreferences);
   await database.db.delete(groupMembers);
   await database.db.delete(groups);
   await database.db.delete(pairingCodes);
@@ -97,6 +99,19 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
     const groupMembersResult = await app.inject({ method: "GET", url: `/admin/groups/${groupId}/members`, headers: { cookie: adminCookie } });
     assert.equal(groupMembersResult.statusCode, 200);
     assert.equal(groupMembersResult.json().members.length, 1);
+
+    const preferences = await app.inject({ method: "GET", url: "/social-preferences", headers: { cookie: registrationCookie } });
+    assert.deepEqual(preferences.json(), { muted: false });
+    const muted = await app.inject({ method: "PUT", url: "/social-preferences", headers: { cookie: registrationCookie }, payload: { muted: true } });
+    assert.equal(muted.statusCode, 200);
+    assert.deepEqual(muted.json(), { muted: true });
+
+    const reaction = await app.inject({
+      method: "POST", url: `/groups/${groupId}/interactions`, headers: { cookie: registrationCookie }, payload: { type: "reaction", reaction: "🎉" },
+    });
+    assert.equal(reaction.statusCode, 202);
+    assert.match(reaction.json().eventId, /^[0-9a-f-]{36}$/i);
+    assert.equal(reaction.json().delivery, "pending_mqtt");
 
     const deviceId = "7e8c3c74-faa2-40a9-8fa9-aa1c25c61c90";
     const bootstrapSecret = "D2cfyjmFtuvDDvhhxu1LFEDkaqUON9sHTA0hm1Bf";

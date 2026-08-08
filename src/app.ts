@@ -5,6 +5,7 @@ import Fastify from "fastify";
 import { registerAuthRoutes } from "./modules/auth/auth.routes.js";
 import { registerDeviceRoutes } from "./modules/devices/device.routes.js";
 import { registerGroupRoutes } from "./modules/groups/group.routes.js";
+import { registerSocialRoutes } from "./modules/social/social.routes.js";
 import type { Environment } from "./config.js";
 import { createDatabase, type DatabaseConnection } from "./db/client.js";
 
@@ -19,7 +20,7 @@ export function createApp(
   void app.register(cors, {
     origin: environment.CORS_ORIGIN,
     credentials: true,
-    methods: ["GET", "HEAD", "POST", "PATCH", "DELETE", "OPTIONS"],
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
 
   app.get("/health", async () => ({ status: "ok" }));
@@ -27,6 +28,7 @@ export function createApp(
     await registerAuthRoutes(instance, database, environment);
     await registerDeviceRoutes(instance, database);
     await registerGroupRoutes(instance, database);
+    await registerSocialRoutes(instance, database);
   });
 
   app.addHook("onClose", async () => {
