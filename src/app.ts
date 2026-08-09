@@ -6,6 +6,8 @@ import { registerAuthRoutes } from "./modules/auth/auth.routes.js";
 import { registerDeviceRoutes } from "./modules/devices/device.routes.js";
 import { registerGroupRoutes } from "./modules/groups/group.routes.js";
 import { registerSocialRoutes } from "./modules/social/social.routes.js";
+import { registerStatusRoutes } from "./modules/status/status.routes.js";
+import { createStatusSynchronizer } from "./modules/status/status_sync.js";
 import type { Environment } from "./config.js";
 import { createDatabase, type DatabaseConnection } from "./db/client.js";
 
@@ -15,6 +17,7 @@ export function createApp(
 ) {
   const database = databaseConnection.db;
   const app = Fastify({ logger: true });
+  const statusSynchronizer = createStatusSynchronizer(environment, database, app.log);
 
   void app.register(cookie);
   void app.register(cors, {
@@ -29,9 +32,13 @@ export function createApp(
     await registerDeviceRoutes(instance, database);
     await registerGroupRoutes(instance, database);
     await registerSocialRoutes(instance, database);
+    await registerStatusRoutes(instance, database, statusSynchronizer);
   });
 
+  app.addHook("onReady", async () => { statusSynchronizer.start(); });
+
   app.addHook("onClose", async () => {
+    await statusSynchronizer.stop();
     await databaseConnection.close();
   });
 

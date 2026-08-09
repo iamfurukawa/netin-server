@@ -95,3 +95,32 @@ export const socialEvents = pgTable("social_events", {
   index("social_events_expires_at_index").on(table.expiresAt),
   check("social_events_type", sql`${table.type} IN ('reaction', 'message')`),
 ]);
+
+export const userStatuses = pgTable("user_statuses", {
+  userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  status: text("status").notNull(),
+  globalVersion: integer("global_version").default(1).notNull(),
+  sourceEventId: uuid("source_event_id").notNull(),
+  sourceDeviceId: uuid("source_device_id").references(() => devices.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  check("user_statuses_value", sql`${table.status} IN ('available', 'busy', 'focused', 'away', 'invisible', 'in_call', 'gaming', 'sleeping', 'do_not_disturb')`),
+  check("user_statuses_global_version", sql`${table.globalVersion} >= 1`),
+]);
+
+export const statusEvents = pgTable("status_events", {
+  eventId: uuid("event_id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  deviceId: uuid("device_id").references(() => devices.id, { onDelete: "set null" }),
+  status: text("status").notNull(),
+  deviceVersion: integer("device_version"),
+  globalVersion: integer("global_version"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index("status_events_user_accepted_at_index").on(table.userId, table.acceptedAt),
+  index("status_events_device_id_index").on(table.deviceId),
+  check("status_events_value", sql`${table.status} IN ('available', 'busy', 'focused', 'away', 'invisible', 'in_call', 'gaming', 'sleeping', 'do_not_disturb')`),
+  check("status_events_device_version", sql`${table.deviceVersion} IS NULL OR ${table.deviceVersion} >= 0`),
+  check("status_events_global_version", sql`${table.globalVersion} IS NULL OR ${table.globalVersion} >= 1`),
+]);

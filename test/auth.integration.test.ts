@@ -6,7 +6,7 @@ import type { Environment } from "../src/config.js";
 import { createDatabase } from "../src/db/client.js";
 import { runMigrations } from "../src/db/migrate.js";
 import { eq } from "drizzle-orm";
-import { devices, groupMembers, groups, pairingCodes, sessions, socialEvents, socialPreferences, users } from "../src/db/schema.js";
+import { devices, groupMembers, groups, pairingCodes, sessions, socialEvents, socialPreferences, statusEvents, userStatuses, users } from "../src/db/schema.js";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 
@@ -30,6 +30,8 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
   await runMigrations(environment);
 
   const database = createDatabase(environment);
+  await database.db.delete(statusEvents);
+  await database.db.delete(userStatuses);
   await database.db.delete(socialEvents);
   await database.db.delete(socialPreferences);
   await database.db.delete(groupMembers);
@@ -112,6 +114,19 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
     assert.equal(reaction.statusCode, 202);
     assert.match(reaction.json().eventId, /^[0-9a-f-]{36}$/i);
     assert.equal(reaction.json().delivery, "pending_mqtt");
+
+    const emptyStatus = await app.inject({ method: "GET", url: "/status", headers: { cookie: registrationCookie } });
+    assert.equal(emptyStatus.statusCode, 200);
+    assert.deepEqual(emptyStatus.json(), { status: null });
+    const availableStatus = await app.inject({ method: "PUT", url: "/status", headers: { cookie: registrationCookie }, payload: { status: "available" } });
+    assert.equal(availableStatus.statusCode, 200);
+    assert.equal(availableStatus.json().status.status, "available");
+    assert.equal(availableStatus.json().status.globalVersion, 1);
+    assert.equal(availableStatus.json().delivery, "unavailable");
+    const busyStatus = await app.inject({ method: "PUT", url: "/status", headers: { cookie: registrationCookie }, payload: { status: "busy" } });
+    assert.equal(busyStatus.statusCode, 200);
+    assert.equal(busyStatus.json().status.status, "busy");
+    assert.equal(busyStatus.json().status.globalVersion, 2);
 
     const deviceId = "7e8c3c74-faa2-40a9-8fa9-aa1c25c61c90";
     const bootstrapSecret = "D2cfyjmFtuvDDvhhxu1LFEDkaqUON9sHTA0hm1Bf";

@@ -6,6 +6,7 @@ const environmentSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.string().url(),
   CORS_ORIGIN: z.string().url().default("http://localhost:5173"),
+  MQTT_URL: z.string().url().optional(),
 });
 
 export type Environment = z.infer<typeof environmentSchema>;
