@@ -2,8 +2,8 @@ import type { FastifyInstance } from "fastify";
 
 import type { Environment } from "../../config.js";
 import type { Database } from "../../db/client.js";
-import { AuthenticationError, currentUser, DuplicateEmailError, login, logout, register, toPublicUser } from "./auth.service.js";
-import { credentialsSchema, registerSchema } from "./auth.schemas.js";
+import { AuthenticationError, currentUser, DuplicateEmailError, login, logout, register, toPublicUser, updateProfile } from "./auth.service.js";
+import { credentialsSchema, registerSchema, updateProfileSchema } from "./auth.schemas.js";
 
 const sessionCookie = "netin_session";
 
@@ -48,5 +48,13 @@ export async function registerAuthRoutes(app: FastifyInstance, database: Databas
       return reply.code(401).send({ error: "unauthenticated" });
     }
     return { user: toPublicUser(user) };
+  });
+
+  app.put("/auth/profile", async (request, reply) => {
+    const token = request.cookies[sessionCookie];
+    const user = token ? await currentUser(database, token) : null;
+    if (!user) return reply.code(401).send({ error: "unauthenticated" });
+    const updated = await updateProfile(database, user.id, updateProfileSchema.parse(request.body));
+    return { user: toPublicUser(updated) };
   });
 }

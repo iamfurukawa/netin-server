@@ -36,10 +36,12 @@ export const devices = pgTable("devices", {
   deviceCredentialHash: text("device_credential_hash"),
   deviceCredentialIssuedAt: timestamp("device_credential_issued_at", { withTimezone: true }),
   pairedAt: timestamp("paired_at", { withTimezone: true }),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
   index("devices_owner_user_id_index").on(table.ownerUserId),
+  index("devices_last_seen_at_index").on(table.lastSeenAt),
 ]);
 
 export const pairingCodes = pgTable("pairing_codes", {

@@ -70,6 +70,16 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
     assert.equal(currentUser.statusCode, 200);
     assert.equal(currentUser.json().user.email, "ana@example.com");
 
+    const editedProfile = await app.inject({
+      method: "PUT",
+      url: "/auth/profile",
+      headers: { cookie: registrationCookie },
+      payload: { displayName: "Ana Nova", color: "#13579B" },
+    });
+    assert.equal(editedProfile.statusCode, 200);
+    assert.equal(editedProfile.json().user.displayName, "Ana Nova");
+    assert.equal(editedProfile.json().user.color, "#13579B");
+
     const ordinaryGroups = await app.inject({ method: "GET", url: "/groups", headers: { cookie: registrationCookie } });
     assert.equal(ordinaryGroups.statusCode, 200);
     assert.deepEqual(ordinaryGroups.json().groups, []);

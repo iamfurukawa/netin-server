@@ -4,6 +4,7 @@ import type { FastifyBaseLogger } from "fastify";
 import type { Database } from "../../db/client.js";
 import type { Environment } from "../../config.js";
 import { deviceStatusEventSchema } from "./status.contract.js";
+import { markDeviceSeen } from "../devices/device.repository.js";
 import { pairedDeviceIds, updateStatusFromDevice } from "./status.service.js";
 
 export type StatusPublisher = { publishStatus(userId: string, status: { status: string; globalVersion: number; sourceEventId: string }): Promise<boolean> };
@@ -29,7 +30,13 @@ export function createStatusSynchronizer(environment: Environment, database: Dat
     const deviceId = topic.split("/")[3];
     if (!deviceId) return;
     try {
-      const event = deviceStatusEventSchema.parse(JSON.parse(payload.toString("utf8")));
+      const rawEvent = JSON.parse(payload.toString("utf8")) as { protocolVersion?: number; type?: string };
+      if (rawEvent.protocolVersion === protocolVersion && rawEvent.type === "heartbeat") {
+        await markDeviceSeen(database, deviceId);
+        return;
+      }
+      const event = deviceStatusEventSchema.parse(rawEvent);
+      await markDeviceSeen(database, deviceId);
       const result = await updateStatusFromDevice(database, deviceId, { ...event, createdAt: new Date(event.createdAt) });
       if (!result.current) return;
       await new Promise<void>((resolve, reject) => client!.publish(`netin/v1/devices/${deviceId}/ack`, JSON.stringify({

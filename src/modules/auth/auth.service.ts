@@ -2,7 +2,7 @@ import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } fr
 import { promisify } from "node:util";
 
 import type { Database } from "../../db/client.js";
-import { createSession, createUser, deleteSession, findSessionUser, findUserByEmail, type UserRecord } from "./auth.repository.js";
+import { createSession, createUser, deleteSession, findSessionUser, findUserByEmail, updateUserProfile, type UserRecord } from "./auth.repository.js";
 import type { Credentials, RegisterInput } from "./auth.schemas.js";
 
 const scrypt = promisify(scryptCallback);
@@ -60,6 +60,12 @@ export async function logout(database: Database, token: string) {
 
 export async function currentUser(database: Database, token: string) {
   return findSessionUser(database, hashToken(token));
+}
+
+export async function updateProfile(database: Database, userId: string, input: { displayName: string; color: string | null }) {
+  const user = await updateUserProfile(database, userId, input);
+  if (!user) throw new AuthenticationError();
+  return user;
 }
 
 export function toPublicUser(user: UserRecord) {

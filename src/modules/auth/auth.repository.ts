@@ -21,6 +21,11 @@ export async function createSession(database: Database, userId: string, tokenHas
   await database.insert(sessions).values({ userId, tokenHash, expiresAt });
 }
 
+export async function updateUserProfile(database: Database, userId: string, input: { displayName: string; color: string | null }) {
+  const [user] = await database.update(users).set({ ...input, updatedAt: new Date() }).where(eq(users.id, userId)).returning();
+  return user ?? null;
+}
+
 export async function deleteSession(database: Database, tokenHash: string) {
   await database.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
 }

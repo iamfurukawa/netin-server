@@ -31,8 +31,13 @@ export async function listDevicesForOwner(database: Database, ownerUserId: strin
     id: devices.id,
     hardwareTarget: devices.hardwareTarget,
     pairedAt: devices.pairedAt,
+    lastSeenAt: devices.lastSeenAt,
     createdAt: devices.createdAt,
   }).from(devices).where(eq(devices.ownerUserId, ownerUserId));
+}
+
+export async function markDeviceSeen(database: Database, deviceId: string) {
+  await database.update(devices).set({ lastSeenAt: new Date(), updatedAt: new Date() }).where(eq(devices.id, deviceId));
 }
 
 export async function pairDeviceByCode(database: Database, ownerUserId: string, codeHash: string) {
