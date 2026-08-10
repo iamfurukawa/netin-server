@@ -28,7 +28,8 @@ Em produção o deploy executa apenas `npm run migrate`, nunca gera migrações.
 
 - `GET /health` está implementado e publicado em `https://netin-server.13997906387.xyz/health`.
 - O broker Mosquitto de produção está em Compose separado, com autenticação e ACL.
-- Autenticação, migrações de domínio, pareamento e consumo de eventos MQTT ainda serão implementados.
+- Autenticação por e-mail/senha, pareamento, status e sincronização MQTT de status estão implementados.
+- As credenciais MQTT individuais e revogáveis estão preparadas no servidor, mas dependem da ativação do Dynamic Security no Mosquitto. Veja `docs/mqtt-dynamic-security.md`.
 
 ## Desenvolvimento local
 
@@ -47,7 +48,7 @@ O Mosquitto de desenvolvimento permite conexões anônimas apenas na máquina lo
 O deploy usa a rede Docker externa `nginxnet`, o PostgreSQL já existente no host e o Cloudflare Tunnel já conectado ao Nginx.
 
 1. Crie o banco/usuário `netin` no PostgreSQL existente e copie `.env.production.example` para `.env.production` com senhas fortes. A URL deve usar o hostname Docker `postgres`, por exemplo `postgresql://netin:SENHA@postgres:5432/netin`.
-2. Crie `secrets/mosquitto/passwordfile` e `secrets/mosquitto/aclfile`; esses arquivos não entram no Git.
+2. O Mosquitto usa Dynamic Security. Antes de subir o broker pela primeira vez, siga `docs/mqtt-dynamic-security.md` para inicializar o administrador, os papéis e as credenciais internas.
 3. Clone este repositório em `/srv/netin-server` e mantenha `.env.production` e `secrets/` somente na Raspberry.
 4. Adicione no `nginx.conf` as rotas abaixo e habilite proxy WebSocket com HTTP/1.1:
 
@@ -66,19 +67,11 @@ O Cloudflare Tunnel já encaminha o hostname curinga para o Nginx. Portanto, nã
 
 Os hosts públicos devem ter somente um nível antes do domínio (`netin-server`, `netin-mqtt` e `netin`). O certificado Universal SSL do Cloudflare não cobre nomes como `netin.server.13997906387.xyz`.
 
-### Docker rootless e arquivos do Mosquitto
+### Docker rootless e estado do Mosquitto
 
-Nesta Raspberry, Docker roda em modo rootless. Os arquivos de senha e ACL do
-Mosquitto precisam ser legíveis pelo UID mapeado do usuário `mosquitto` dentro do
-container. Com o intervalo padrão `iamfurukawa:100000:65536`, o UID/GID 1883 do
-container corresponde a `101882` no host:
-
-```bash
-sudo chown 101882:101882 secrets/mosquitto/passwordfile secrets/mosquitto/aclfile
-sudo chmod 600 secrets/mosquitto/passwordfile secrets/mosquitto/aclfile
-```
-
-Valide após subir o broker:
+Nesta Raspberry, Docker roda em modo rootless. O estado do Dynamic Security fica
+no volume `mosquitto-data`, em `/mosquitto/data/dynamic-security.json`; não o
+apague ao recriar o contêiner. Valide após subir o broker:
 
 ```bash
 docker compose -f docker-compose.mosquitto.production.yml logs mosquitto

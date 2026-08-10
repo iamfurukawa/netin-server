@@ -5,8 +5,6 @@ services:
     restart: unless-stopped
     volumes:
       - ./infra/mosquitto/mosquitto.production.conf:/mosquitto/config/mosquitto.conf:ro
-      - ./secrets/mosquitto/passwordfile:/mosquitto/config/passwordfile:ro
-      - ./secrets/mosquitto/aclfile:/mosquitto/config/aclfile:ro
       - mosquitto-data:/mosquitto/data
       - mosquitto-log:/mosquitto/log
     networks:

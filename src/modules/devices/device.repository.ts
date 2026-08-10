@@ -10,6 +10,12 @@ export async function findDevice(database: Database, deviceId: string) {
   return device ?? null;
 }
 
+export async function findDeviceForOwner(database: Database, ownerUserId: string, deviceId: string) {
+  const [device] = await database.select().from(devices)
+    .where(and(eq(devices.id, deviceId), eq(devices.ownerUserId, ownerUserId)));
+  return device ?? null;
+}
+
 export async function createDevice(database: Database, device: typeof devices.$inferInsert) {
   const [created] = await database.insert(devices).values(device).returning();
   return created;

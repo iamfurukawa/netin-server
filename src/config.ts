@@ -7,6 +7,12 @@ const environmentSchema = z.object({
   DATABASE_URL: z.string().url(),
   CORS_ORIGIN: z.string().url().default("http://localhost:5173"),
   MQTT_URL: z.string().url().optional(),
+  MQTT_USERNAME: z.string().min(1).optional(),
+  MQTT_PASSWORD: z.string().min(1).optional(),
+  MQTT_CLIENT_ID: z.string().min(1).optional(),
+  MQTT_ADMIN_USERNAME: z.string().min(1).optional(),
+  MQTT_ADMIN_PASSWORD: z.string().min(1).optional(),
+  MQTT_ADMIN_CLIENT_ID: z.string().min(1).optional(),
 });
 
 export type Environment = z.infer<typeof environmentSchema>;

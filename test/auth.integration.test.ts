@@ -169,6 +169,7 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
     });
     assert.equal(deviceCredential.statusCode, 200);
     assert.match(deviceCredential.json().credential, /^[A-Za-z0-9_-]{43}$/);
+    assert.equal(deviceCredential.json().mqtt, null);
 
     const listed = await app.inject({ method: "GET", url: "/devices", headers: { cookie: registrationCookie } });
     assert.equal(listed.statusCode, 200);

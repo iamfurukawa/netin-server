@@ -4,6 +4,7 @@ import Fastify from "fastify";
 
 import { registerAuthRoutes } from "./modules/auth/auth.routes.js";
 import { registerDeviceRoutes } from "./modules/devices/device.routes.js";
+import { createMqttProvisioner } from "./modules/devices/mqtt-provisioner.js";
 import { registerGroupRoutes } from "./modules/groups/group.routes.js";
 import { registerSocialRoutes } from "./modules/social/social.routes.js";
 import { registerStatusRoutes } from "./modules/status/status.routes.js";
@@ -18,6 +19,7 @@ export function createApp(
   const database = databaseConnection.db;
   const app = Fastify({ logger: true });
   const statusSynchronizer = createStatusSynchronizer(environment, database, app.log);
+  const mqttProvisioner = createMqttProvisioner(environment);
 
   void app.register(cookie);
   void app.register(cors, {
@@ -29,7 +31,7 @@ export function createApp(
   app.get("/health", async () => ({ status: "ok" }));
   void app.register(async (instance) => {
     await registerAuthRoutes(instance, database, environment);
-    await registerDeviceRoutes(instance, database);
+    await registerDeviceRoutes(instance, database, mqttProvisioner);
     await registerGroupRoutes(instance, database);
     await registerSocialRoutes(instance, database);
     await registerStatusRoutes(instance, database, statusSynchronizer);

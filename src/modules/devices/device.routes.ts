@@ -4,10 +4,11 @@ import type { Database } from "../../db/client.js";
 import { currentUser } from "../auth/auth.service.js";
 import { deviceBootstrapSchema, issuePairingCodeSchema, pairDeviceSchema, registerDeviceSchema } from "./device.schemas.js";
 import { DeviceAlreadyPairedError, DeviceAuthenticationError, DeviceNotPairedError, issueDeviceCredential, issuePairingCode, listDevices, pairingStatus, PairingCodeError, pairDevice, registerDevice, removeDevice } from "./device.service.js";
+import { MqttProvisioningError, type MqttProvisioner } from "./mqtt-provisioner.js";
 
 const sessionCookie = "netin_session";
 
-export async function registerDeviceRoutes(app: FastifyInstance, database: Database) {
+export async function registerDeviceRoutes(app: FastifyInstance, database: Database, mqttProvisioner?: MqttProvisioner) {
   async function authenticatedUser(request: FastifyRequest, reply: FastifyReply) {
     const token = request.cookies[sessionCookie];
     const user = token ? await currentUser(database, token) : null;
@@ -50,10 +51,11 @@ export async function registerDeviceRoutes(app: FastifyInstance, database: Datab
 
   app.post("/device/credential", async (request, reply) => {
     try {
-      return await issueDeviceCredential(database, deviceBootstrapSchema.parse(request.body));
+      return await issueDeviceCredential(database, deviceBootstrapSchema.parse(request.body), mqttProvisioner);
     } catch (error) {
       if (error instanceof DeviceAuthenticationError) return reply.code(401).send({ error: "invalid_device_credentials" });
       if (error instanceof DeviceNotPairedError) return reply.code(409).send({ error: "device_not_paired" });
+      if (error instanceof MqttProvisioningError) return reply.code(503).send({ error: "mqtt_provisioning_unavailable" });
       throw error;
     }
   });
@@ -80,10 +82,11 @@ export async function registerDeviceRoutes(app: FastifyInstance, database: Datab
     const user = await authenticatedUser(request, reply);
     if (!user) return;
     try {
-      await removeDevice(database, user.id, (request.params as { deviceId: string }).deviceId);
+      await removeDevice(database, user.id, (request.params as { deviceId: string }).deviceId, mqttProvisioner);
       return reply.code(204).send();
     } catch (error) {
       if (error instanceof PairingCodeError) return reply.code(404).send({ error: "device_not_found" });
+      if (error instanceof MqttProvisioningError) return reply.code(503).send({ error: "mqtt_provisioning_unavailable" });
       throw error;
     }
   });

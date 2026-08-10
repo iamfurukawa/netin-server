@@ -2,7 +2,8 @@ import { createHash, randomBytes } from "node:crypto";
 
 import type { Database } from "../../db/client.js";
 import { hashPassword, verifyPassword } from "../auth/auth.service.js";
-import { createDevice, findDevice, listDevicesForOwner, pairDeviceByCode, replacePairingCode, setDeviceCredential, unpairDevice } from "./device.repository.js";
+import { createDevice, findDevice, findDeviceForOwner, listDevicesForOwner, pairDeviceByCode, replacePairingCode, setDeviceCredential, unpairDevice } from "./device.repository.js";
+import type { MqttProvisioner } from "./mqtt-provisioner.js";
 
 const pairingCodeLifetimeMs = 10 * 60 * 1000;
 const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -61,12 +62,16 @@ export async function pairingStatus(database: Database, input: { deviceId: strin
   return { paired: Boolean(device.ownerUserId) };
 }
 
-export async function issueDeviceCredential(database: Database, input: { deviceId: string; bootstrapSecret: string }) {
+export async function issueDeviceCredential(database: Database, input: { deviceId: string; bootstrapSecret: string }, mqttProvisioner?: MqttProvisioner) {
   const device = await authenticateDevice(database, input.deviceId, input.bootstrapSecret);
   if (!device.ownerUserId) throw new DeviceNotPairedError();
   const credential = randomBytes(32).toString("base64url");
+  await mqttProvisioner?.provisionDevice(device.id, credential);
   await setDeviceCredential(database, device.id, hashCredential(credential));
-  return { credential };
+  return {
+    credential,
+    mqtt: mqttProvisioner?.enabled ? { username: `device-${device.id}`, clientId: device.id } : null,
+  };
 }
 
 export async function pairDevice(database: Database, ownerUserId: string, code: string) {
@@ -79,7 +84,9 @@ export async function listDevices(database: Database, ownerUserId: string) {
   return listDevicesForOwner(database, ownerUserId);
 }
 
-export async function removeDevice(database: Database, ownerUserId: string, deviceId: string) {
-  const device = await unpairDevice(database, ownerUserId, deviceId);
+export async function removeDevice(database: Database, ownerUserId: string, deviceId: string, mqttProvisioner?: MqttProvisioner) {
+  const device = await findDeviceForOwner(database, ownerUserId, deviceId);
   if (!device) throw new PairingCodeError();
+  await mqttProvisioner?.revokeDevice(deviceId);
+  await unpairDevice(database, ownerUserId, deviceId);
 }

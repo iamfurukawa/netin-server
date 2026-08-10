@@ -44,7 +44,12 @@ export function createStatusSynchronizer(environment: Environment, database: Dat
   return {
     start() {
       if (!environment.MQTT_URL || client) return;
-      client = mqtt.connect(environment.MQTT_URL, { clientId: `netin-server-${process.pid}`, reconnectPeriod: 3_000 });
+      client = mqtt.connect(environment.MQTT_URL, {
+        clientId: environment.MQTT_CLIENT_ID ?? "netin-server",
+        username: environment.MQTT_USERNAME,
+        password: environment.MQTT_PASSWORD,
+        reconnectPeriod: 3_000,
+      });
       client.on("connect", () => client?.subscribe(deviceEventTopic, { qos: 1 }, (error) => {
         if (error) logger.error({ err: error }, "Could not subscribe to device events");
         else logger.info({ topic: deviceEventTopic }, "MQTT status synchronizer connected");
