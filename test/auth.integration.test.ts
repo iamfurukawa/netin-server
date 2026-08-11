@@ -126,7 +126,7 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
     });
     assert.equal(reaction.statusCode, 202);
     assert.match(reaction.json().eventId, /^[0-9a-f-]{36}$/i);
-    assert.equal(reaction.json().recipients, 1);
+    assert.equal(reaction.json().recipients, 0);
     assert.equal(reaction.json().delivery, "pending_mqtt");
 
     const emptyStatus = await app.inject({ method: "GET", url: "/status", headers: { cookie: registrationCookie } });
@@ -189,6 +189,12 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
     assert.equal(listed.statusCode, 200);
     assert.equal(listed.json().devices.length, 1);
     assert.equal(listed.json().devices[0].hardwareTarget, "esp32-2432s024");
+
+    const deliveredReaction = await app.inject({
+      method: "POST", url: `/groups/${groupId}/interactions`, headers: { cookie: registrationCookie }, payload: { type: "reaction", reaction: "👏" },
+    });
+    assert.equal(deliveredReaction.statusCode, 202);
+    assert.equal(deliveredReaction.json().recipients, 1);
 
     const removed = await app.inject({ method: "DELETE", url: `/devices/${deviceId}`, headers: { cookie: registrationCookie } });
     assert.equal(removed.statusCode, 204);
