@@ -98,6 +98,20 @@ export const socialEvents = pgTable("social_events", {
   check("social_events_type", sql`${table.type} IN ('reaction', 'message')`),
 ]);
 
+export const eventDeliveries = pgTable("event_deliveries", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  eventId: uuid("event_id").notNull().references(() => socialEvents.id, { onDelete: "cascade" }),
+  deviceId: uuid("device_id").notNull().references(() => devices.id, { onDelete: "cascade" }),
+  attempts: integer("attempts").default(0).notNull(),
+  lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+  acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("event_deliveries_event_device_unique").on(table.eventId, table.deviceId),
+  index("event_deliveries_device_pending_index").on(table.deviceId, table.acknowledgedAt),
+  index("event_deliveries_event_index").on(table.eventId),
+]);
+
 export const userStatuses = pgTable("user_statuses", {
   userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
   status: text("status").notNull(),

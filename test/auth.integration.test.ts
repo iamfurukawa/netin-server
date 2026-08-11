@@ -118,11 +118,15 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
     assert.equal(muted.statusCode, 200);
     assert.deepEqual(muted.json(), { muted: true });
 
+    const unmuted = await app.inject({ method: "PUT", url: "/social-preferences", headers: { cookie: registrationCookie }, payload: { muted: false } });
+    assert.deepEqual(unmuted.json(), { muted: false });
+
     const reaction = await app.inject({
       method: "POST", url: `/groups/${groupId}/interactions`, headers: { cookie: registrationCookie }, payload: { type: "reaction", reaction: "🎉" },
     });
     assert.equal(reaction.statusCode, 202);
     assert.match(reaction.json().eventId, /^[0-9a-f-]{36}$/i);
+    assert.equal(reaction.json().recipients, 1);
     assert.equal(reaction.json().delivery, "pending_mqtt");
 
     const emptyStatus = await app.inject({ method: "GET", url: "/status", headers: { cookie: registrationCookie } });

@@ -1,6 +1,7 @@
 import type { Database } from "../../db/client.js";
 import type { UserRecord } from "../auth/auth.repository.js";
 import { archiveGroupRecord, createGroupRecord, findActiveGroup, joinGroupRecord, leaveGroupRecord, listActiveGroups, listGroupMembers, updateGroupRecord } from "./group.repository.js";
+import { cancelDeliveriesForGroupMember } from "../social/social.service.js";
 
 export class GroupNotFoundError extends Error {}
 export class GroupClosedError extends Error {}
@@ -25,6 +26,7 @@ export async function leaveGroup(database: Database, groupId: string, userId: st
   const group = await findActiveGroup(database, groupId);
   if (!group) throw new GroupNotFoundError();
   await leaveGroupRecord(database, group.id, userId);
+  await cancelDeliveriesForGroupMember(database, group.id, userId);
 }
 
 export async function createGroup(database: Database, user: UserRecord, input: { name: string; registrationsOpen?: boolean }) {
@@ -55,4 +57,5 @@ export async function removeMember(database: Database, user: UserRecord, groupId
   requireAdmin(user);
   if (!await findActiveGroup(database, groupId)) throw new GroupNotFoundError();
   await leaveGroupRecord(database, groupId, memberUserId);
+  await cancelDeliveriesForGroupMember(database, groupId, memberUserId);
 }

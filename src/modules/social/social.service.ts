@@ -1,11 +1,13 @@
 import type { Database } from "../../db/client.js";
 import { findActiveGroup, isGroupMember } from "../groups/group.repository.js";
-import { createSocialEvent, getSocialPreferences, setSocialPreferences } from "./social.repository.js";
+import { cancelPendingDeliveriesForUser, createDeliveriesForGroupEvent, createSocialEvent, getSocialPreferences, removeCompletedEvent, setSocialPreferences } from "./social.repository.js";
 import type { z } from "zod";
 import type { sendGroupInteractionSchema } from "./social.schemas.js";
 
 export class SocialGroupNotFoundError extends Error {}
 export class GroupMembershipRequiredError extends Error {}
+
+export type SocialDeliveryPublisher = { publishPendingSocialDeliveries(): Promise<void> };
 
 const eventLifetimeMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -16,10 +18,19 @@ export async function preferencesForUser(database: Database, userId: string) {
 
 export async function updatePreferences(database: Database, userId: string, muted: boolean) {
   const preferences = await setSocialPreferences(database, userId, muted);
+  if (muted) {
+    const eventIds = await cancelPendingDeliveriesForUser(database, userId);
+    await Promise.all(eventIds.map((eventId) => removeCompletedEvent(database, eventId)));
+  }
   return { muted: preferences.interactionsMuted };
 }
 
-export async function sendGroupInteraction(database: Database, senderUserId: string, groupId: string, input: z.infer<typeof sendGroupInteractionSchema>) {
+export async function cancelDeliveriesForGroupMember(database: Database, groupId: string, userId: string) {
+  const eventIds = await cancelPendingDeliveriesForUser(database, userId, groupId);
+  await Promise.all(eventIds.map((eventId) => removeCompletedEvent(database, eventId)));
+}
+
+export async function sendGroupInteraction(database: Database, senderUserId: string, groupId: string, input: z.infer<typeof sendGroupInteractionSchema>, publisher?: SocialDeliveryPublisher) {
   if (!await findActiveGroup(database, groupId)) throw new SocialGroupNotFoundError();
   if (!await isGroupMember(database, groupId, senderUserId)) throw new GroupMembershipRequiredError();
   const payload = input.type === "reaction" ? { reaction: input.reaction } : { text: input.text };
@@ -31,5 +42,7 @@ export async function sendGroupInteraction(database: Database, senderUserId: str
     protocolVersion: 1,
     expiresAt: new Date(Date.now() + eventLifetimeMs),
   });
-  return { eventId: event.id, createdAt: event.createdAt, delivery: "pending_mqtt" as const };
+  const recipients = await createDeliveriesForGroupEvent(database, event.id, groupId);
+  await publisher?.publishPendingSocialDeliveries();
+  return { eventId: event.id, createdAt: event.createdAt, recipients, delivery: "pending_mqtt" as const };
 }

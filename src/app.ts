@@ -33,7 +33,7 @@ export function createApp(
     await registerAuthRoutes(instance, database, environment);
     await registerDeviceRoutes(instance, database, mqttProvisioner);
     await registerGroupRoutes(instance, database);
-    await registerSocialRoutes(instance, database);
+    await registerSocialRoutes(instance, database, statusSynchronizer);
     await registerStatusRoutes(instance, database, statusSynchronizer);
   });
 
