@@ -57,6 +57,13 @@
       "when": 1786408012001,
       "tag": "0007_yielding_madripoor",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786412871784,
+      "tag": "0008_light_sphinx",
+      "breakpoints": true
     }
   ]
 }

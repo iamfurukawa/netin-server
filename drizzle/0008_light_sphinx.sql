@@ -1,0 +1,2 @@
+ALTER TABLE "social_events" DROP CONSTRAINT "social_events_type";--> statement-breakpoint
+ALTER TABLE "social_events" ADD CONSTRAINT "social_events_type" CHECK ("social_events"."type" IN ('reaction', 'message', 'poke'));

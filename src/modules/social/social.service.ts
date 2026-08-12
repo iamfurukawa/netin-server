@@ -33,7 +33,7 @@ export async function cancelDeliveriesForGroupMember(database: Database, groupId
 export async function sendGroupInteraction(database: Database, senderUserId: string, groupId: string, input: z.infer<typeof sendGroupInteractionSchema>, publisher?: SocialDeliveryPublisher) {
   if (!await findActiveGroup(database, groupId)) throw new SocialGroupNotFoundError();
   if (!await isGroupMember(database, groupId, senderUserId)) throw new GroupMembershipRequiredError();
-  const payload = input.type === "reaction" ? { reaction: input.reaction } : { text: input.text };
+  const payload = input.type === "reaction" ? { reaction: input.reaction } : input.type === "message" ? { text: input.text } : {};
   const event = await createSocialEvent(database, {
     senderUserId,
     groupId,

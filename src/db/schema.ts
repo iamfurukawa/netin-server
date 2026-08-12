@@ -95,7 +95,7 @@ export const socialEvents = pgTable("social_events", {
 }, (table) => [
   index("social_events_group_created_at_index").on(table.groupId, table.createdAt),
   index("social_events_expires_at_index").on(table.expiresAt),
-  check("social_events_type", sql`${table.type} IN ('reaction', 'message')`),
+  check("social_events_type", sql`${table.type} IN ('reaction', 'message', 'poke')`),
 ]);
 
 export const eventDeliveries = pgTable("event_deliveries", {
