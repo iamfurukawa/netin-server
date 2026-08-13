@@ -1,11 +1,12 @@
 import type { Database } from "../../db/client.js";
 import { findActiveGroup, isGroupMember } from "../groups/group.repository.js";
-import { cancelPendingDeliveriesForUser, createDeliveriesForGroupEvent, createSocialEvent, getSocialPreferences, removeCompletedEvent, setSocialPreferences } from "./social.repository.js";
+import { cancelPendingDeliveriesForUser, createDeliveriesForGroupEvent, createDeliveriesForUserEvent, createSocialEvent, getSocialPreferences, removeCompletedEvent, setSocialPreferences } from "./social.repository.js";
 import type { z } from "zod";
 import type { sendGroupInteractionSchema } from "./social.schemas.js";
 
 export class SocialGroupNotFoundError extends Error {}
 export class GroupMembershipRequiredError extends Error {}
+export class InvalidPokeTargetError extends Error {}
 
 export type SocialDeliveryPublisher = { publishPendingSocialDeliveries(): Promise<void> };
 
@@ -33,16 +34,22 @@ export async function cancelDeliveriesForGroupMember(database: Database, groupId
 export async function sendGroupInteraction(database: Database, senderUserId: string, groupId: string, input: z.infer<typeof sendGroupInteractionSchema>, publisher?: SocialDeliveryPublisher) {
   if (!await findActiveGroup(database, groupId)) throw new SocialGroupNotFoundError();
   if (!await isGroupMember(database, groupId, senderUserId)) throw new GroupMembershipRequiredError();
+  if (input.type === "poke" && input.targetUserId && (input.targetUserId === senderUserId || !await isGroupMember(database, groupId, input.targetUserId))) {
+    throw new InvalidPokeTargetError();
+  }
   const payload = input.type === "reaction" ? { reaction: input.reaction } : input.type === "message" ? { text: input.text } : {};
   const event = await createSocialEvent(database, {
     senderUserId,
     groupId,
+    targetUserId: input.type === "poke" ? input.targetUserId : undefined,
     type: input.type,
     payload,
     protocolVersion: 1,
     expiresAt: new Date(Date.now() + eventLifetimeMs),
   });
-  const recipients = await createDeliveriesForGroupEvent(database, event.id, groupId);
+  const recipients = input.type === "poke" && input.targetUserId
+    ? await createDeliveriesForUserEvent(database, event.id, input.targetUserId)
+    : await createDeliveriesForGroupEvent(database, event.id, groupId);
   await publisher?.publishPendingSocialDeliveries();
   return { eventId: event.id, createdAt: event.createdAt, recipients, delivery: "pending_mqtt" as const };
 }

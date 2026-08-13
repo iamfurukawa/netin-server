@@ -87,6 +87,7 @@ export const socialEvents = pgTable("social_events", {
   id: uuid("id").defaultRandom().primaryKey(),
   senderUserId: uuid("sender_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   groupId: uuid("group_id").notNull().references(() => groups.id, { onDelete: "cascade" }),
+  targetUserId: uuid("target_user_id").references(() => users.id, { onDelete: "cascade" }),
   type: text("type").notNull(),
   payload: jsonb("payload").notNull(),
   protocolVersion: integer("protocol_version").default(1).notNull(),
@@ -94,6 +95,7 @@ export const socialEvents = pgTable("social_events", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 }, (table) => [
   index("social_events_group_created_at_index").on(table.groupId, table.createdAt),
+  index("social_events_target_user_id_index").on(table.targetUserId),
   index("social_events_expires_at_index").on(table.expiresAt),
   check("social_events_type", sql`${table.type} IN ('reaction', 'message', 'poke')`),
 ]);

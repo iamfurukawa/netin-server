@@ -3,7 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { Database } from "../../db/client.js";
 import { currentUser } from "../auth/auth.service.js";
 import { sendGroupInteractionSchema, socialPreferencesSchema } from "./social.schemas.js";
-import { GroupMembershipRequiredError, preferencesForUser, sendGroupInteraction, SocialGroupNotFoundError, updatePreferences, type SocialDeliveryPublisher } from "./social.service.js";
+import { GroupMembershipRequiredError, InvalidPokeTargetError, preferencesForUser, sendGroupInteraction, SocialGroupNotFoundError, updatePreferences, type SocialDeliveryPublisher } from "./social.service.js";
 
 const sessionCookie = "netin_session";
 
@@ -39,6 +39,7 @@ export async function registerSocialRoutes(app: FastifyInstance, database: Datab
     } catch (error) {
       if (error instanceof SocialGroupNotFoundError) return reply.code(404).send({ error: "group_not_found" });
       if (error instanceof GroupMembershipRequiredError) return reply.code(403).send({ error: "group_membership_required" });
+      if (error instanceof InvalidPokeTargetError) return reply.code(400).send({ error: "invalid_poke_target" });
       throw error;
     }
   });

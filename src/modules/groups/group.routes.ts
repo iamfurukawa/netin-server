@@ -3,7 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { Database } from "../../db/client.js";
 import { currentUser } from "../auth/auth.service.js";
 import { createGroupSchema, updateGroupSchema } from "./group.schemas.js";
-import { archiveGroup, createGroup, GroupClosedError, GroupForbiddenError, GroupNotFoundError, joinGroup, leaveGroup, listGroups, membersOfGroup, removeMember, updateGroup } from "./group.service.js";
+import { archiveGroup, createGroup, GroupClosedError, GroupForbiddenError, GroupNotFoundError, joinGroup, leaveGroup, listGroups, membersForInteraction, membersOfGroup, removeMember, updateGroup } from "./group.service.js";
 
 const sessionCookie = "netin_session";
 
@@ -46,6 +46,14 @@ export async function registerGroupRoutes(app: FastifyInstance, database: Databa
     try {
       await leaveGroup(database, (request.params as { groupId: string }).groupId, user.id);
       return reply.code(204).send();
+    } catch (error) { return groupError(error, reply); }
+  });
+
+  app.get("/groups/:groupId/members", async (request, reply) => {
+    const user = await authenticatedUser(request, reply);
+    if (!user) return;
+    try {
+      return { members: await membersForInteraction(database, user.id, (request.params as { groupId: string }).groupId) };
     } catch (error) { return groupError(error, reply); }
   });
 

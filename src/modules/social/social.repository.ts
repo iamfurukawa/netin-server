@@ -29,6 +29,15 @@ export async function createDeliveriesForGroupEvent(database: Database, eventId:
   return recipients.length;
 }
 
+export async function createDeliveriesForUserEvent(database: Database, eventId: string, userId: string) {
+  const recipients = await database.select({ deviceId: devices.id }).from(devices)
+    .leftJoin(socialPreferences, eq(socialPreferences.userId, devices.ownerUserId))
+    .where(and(eq(devices.ownerUserId, userId), or(isNull(socialPreferences.interactionsMuted), eq(socialPreferences.interactionsMuted, false))));
+  if (recipients.length === 0) return 0;
+  await database.insert(eventDeliveries).values(recipients.map((recipient) => ({ eventId, deviceId: recipient.deviceId }))).onConflictDoNothing();
+  return recipients.length;
+}
+
 export async function listPendingDeliveries(database: Database) {
   return database.select({
     eventId: socialEvents.id,

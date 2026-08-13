@@ -1,6 +1,6 @@
 import type { Database } from "../../db/client.js";
 import type { UserRecord } from "../auth/auth.repository.js";
-import { archiveGroupRecord, createGroupRecord, findActiveGroup, joinGroupRecord, leaveGroupRecord, listActiveGroups, listGroupMembers, updateGroupRecord } from "./group.repository.js";
+import { archiveGroupRecord, createGroupRecord, findActiveGroup, isGroupMember, joinGroupRecord, leaveGroupRecord, listActiveGroups, listGroupMembers, updateGroupRecord } from "./group.repository.js";
 import { cancelDeliveriesForGroupMember } from "../social/social.service.js";
 
 export class GroupNotFoundError extends Error {}
@@ -50,6 +50,12 @@ export async function archiveGroup(database: Database, user: UserRecord, groupId
 export async function membersOfGroup(database: Database, user: UserRecord, groupId: string) {
   requireAdmin(user);
   if (!await findActiveGroup(database, groupId)) throw new GroupNotFoundError();
+  return listGroupMembers(database, groupId);
+}
+
+export async function membersForInteraction(database: Database, userId: string, groupId: string) {
+  if (!await findActiveGroup(database, groupId)) throw new GroupNotFoundError();
+  if (!await isGroupMember(database, groupId, userId)) throw new GroupForbiddenError();
   return listGroupMembers(database, groupId);
 }
 
