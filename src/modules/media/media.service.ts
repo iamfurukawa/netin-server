@@ -25,7 +25,9 @@ export async function normalizePhoto(content: Buffer, mimeType: string): Promise
       fit: "contain",
       background: "#17151f",
     });
-    const processed = await image.jpeg({ quality: 80, progressive: false, mozjpeg: true }).toBuffer();
+    // TJpg_Decoder on the ESP32 accepts baseline RGB JPEG reliably. Avoid
+    // mozjpeg-specific optimizations and progressive scans in delivered media.
+    const processed = await image.jpeg({ quality: 80, progressive: false, mozjpeg: false, chromaSubsampling: "4:2:0" }).toBuffer();
     if (processed.length > maxProcessedPhotoBytes) throw new MediaTooLargeError();
     const metadata = await sharp(processed).metadata();
     return {

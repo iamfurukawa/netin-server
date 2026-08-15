@@ -51,6 +51,7 @@ export async function registerMediaRoutes(app: FastifyInstance, database: Databa
         return reply.code(201).send({ asset: {
           id: asset.id, kind: asset.processedMimeType, width: asset.width, height: asset.height,
           size: asset.sizeBytes, sha256: asset.sha256, state: asset.processingState, createdAt: asset.createdAt,
+          downloadPath: `/media/${asset.id}/download`,
         } });
       } catch (error) {
         await storage.remove(storageKey);
