@@ -28,7 +28,7 @@ Em produção o deploy executa apenas `npm run migrate`, nunca gera migrações.
 
 - `GET /health` está implementado e publicado em `https://netin-server.13997906387.xyz/health`.
 - O broker Mosquitto de produção está em Compose separado, com autenticação e ACL.
-- Autenticação por e-mail/senha, pareamento, status e sincronização MQTT de status estão implementados.
+- Autenticação por e-mail/senha, pareamento, status e sincronização MQTT estão implementados. Fotos podem ser normalizadas e armazenadas de forma privada; a entrega MQTT de mídia está preparada para a próxima integração do firmware.
 - As credenciais MQTT individuais e revogáveis estão preparadas no servidor, mas dependem da ativação do Dynamic Security no Mosquitto. Veja `docs/mqtt-dynamic-security.md`.
 
 ## Desenvolvimento local
@@ -50,6 +50,7 @@ O deploy usa a rede Docker externa `nginxnet`, o PostgreSQL já existente no hos
 1. Crie o banco/usuário `netin` no PostgreSQL existente e copie `.env.production.example` para `.env.production` com senhas fortes. A URL deve usar o hostname Docker `postgres`, por exemplo `postgresql://netin:SENHA@postgres:5432/netin`.
 2. O Mosquitto usa Dynamic Security. Antes de subir o broker pela primeira vez, siga `docs/mqtt-dynamic-security.md` para inicializar o administrador, os papéis e as credenciais internas.
 3. Clone este repositório em `/srv/netin-server` e mantenha `.env.production` e `secrets/` somente na Raspberry.
+   Para entrega de mídia, inclua `PUBLIC_API_URL=https://netin-server.13997906387.xyz` e mantenha `MEDIA_STORAGE_PATH=/app/data/media`; o Compose preserva esse diretório no volume `netin_media_data`.
 4. Adicione no `nginx.conf` as rotas abaixo e habilite proxy WebSocket com HTTP/1.1:
 
    ```nginx

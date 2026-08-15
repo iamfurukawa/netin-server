@@ -16,6 +16,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/drizzle ./drizzle
+RUN mkdir -p /app/data/media && chown -R node:node /app/data
 USER node
 EXPOSE 3000
 CMD ["node", "dist/server.js"]

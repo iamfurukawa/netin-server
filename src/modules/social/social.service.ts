@@ -1,6 +1,7 @@
 import type { Database } from "../../db/client.js";
 import { findActiveGroup, isGroupMember } from "../groups/group.repository.js";
 import { cancelPendingDeliveriesForUser, createDeliveriesForGroupEvent, createDeliveriesForUserEvent, createSocialEvent, getSocialPreferences, removeCompletedEvent, setSocialPreferences } from "./social.repository.js";
+import { cancelPendingMediaDeliveriesForUser } from "../media/media.repository.js";
 import type { z } from "zod";
 import type { sendGroupInteractionSchema } from "./social.schemas.js";
 
@@ -22,6 +23,7 @@ export async function updatePreferences(database: Database, userId: string, mute
   if (muted) {
     const eventIds = await cancelPendingDeliveriesForUser(database, userId);
     await Promise.all(eventIds.map((eventId) => removeCompletedEvent(database, eventId)));
+    await cancelPendingMediaDeliveriesForUser(database, userId);
   }
   return { muted: preferences.interactionsMuted };
 }
@@ -29,6 +31,7 @@ export async function updatePreferences(database: Database, userId: string, mute
 export async function cancelDeliveriesForGroupMember(database: Database, groupId: string, userId: string) {
   const eventIds = await cancelPendingDeliveriesForUser(database, userId, groupId);
   await Promise.all(eventIds.map((eventId) => removeCompletedEvent(database, eventId)));
+  await cancelPendingMediaDeliveriesForUser(database, userId, groupId);
 }
 
 export async function sendGroupInteraction(database: Database, senderUserId: string, groupId: string, input: z.infer<typeof sendGroupInteractionSchema>, publisher?: SocialDeliveryPublisher) {

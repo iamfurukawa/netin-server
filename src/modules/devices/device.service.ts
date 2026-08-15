@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 import type { Database } from "../../db/client.js";
 import { hashPassword, verifyPassword } from "../auth/auth.service.js";
@@ -19,6 +19,15 @@ function hashCode(code: string) {
 
 function hashCredential(credential: string) {
   return createHash("sha256").update(credential).digest("base64url");
+}
+
+export async function authenticateDeviceCredential(database: Database, deviceId: string, credential: string) {
+  const device = await findDevice(database, deviceId);
+  const expected = device?.deviceCredentialHash;
+  if (!device?.ownerUserId || !expected) throw new DeviceAuthenticationError();
+  const provided = hashCredential(credential);
+  if (provided.length !== expected.length || !timingSafeEqual(Buffer.from(provided), Buffer.from(expected))) throw new DeviceAuthenticationError();
+  return device;
 }
 
 function createPairingCode() {

@@ -6,7 +6,7 @@ import type { Environment } from "../src/config.js";
 import { createDatabase } from "../src/db/client.js";
 import { runMigrations } from "../src/db/migrate.js";
 import { eq } from "drizzle-orm";
-import { devices, groupMembers, groups, pairingCodes, sessions, socialEvents, socialPreferences, statusEvents, userStatuses, users } from "../src/db/schema.js";
+import { devices, groupMembers, groups, mediaAssets, pairingCodes, sessions, socialEvents, socialPreferences, statusEvents, userStatuses, users } from "../src/db/schema.js";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 
@@ -32,6 +32,7 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
   const database = createDatabase(environment);
   await database.db.delete(statusEvents);
   await database.db.delete(userStatuses);
+  await database.db.delete(mediaAssets);
   await database.db.delete(socialEvents);
   await database.db.delete(socialPreferences);
   await database.db.delete(groupMembers);

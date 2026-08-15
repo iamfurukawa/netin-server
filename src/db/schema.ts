@@ -114,6 +114,60 @@ export const eventDeliveries = pgTable("event_deliveries", {
   index("event_deliveries_event_index").on(table.eventId),
 ]);
 
+export const mediaAssets = pgTable("media_assets", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  ownerUserId: uuid("owner_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  originalMimeType: text("original_mime_type").notNull(),
+  processedMimeType: text("processed_mime_type").notNull(),
+  width: integer("width").notNull(),
+  height: integer("height").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  sha256: text("sha256").notNull(),
+  storageKey: text("storage_key").notNull(),
+  processingState: text("processing_state").default("ready").notNull(),
+  processingError: text("processing_error"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  processedAt: timestamp("processed_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("media_assets_storage_key_unique").on(table.storageKey),
+  index("media_assets_owner_created_at_index").on(table.ownerUserId, table.createdAt),
+  index("media_assets_expires_at_index").on(table.expiresAt),
+  check("media_assets_processing_state", sql`${table.processingState} IN ('processing', 'ready', 'failed')`),
+  check("media_assets_dimensions", sql`${table.width} BETWEEN 1 AND 240 AND ${table.height} BETWEEN 1 AND 320`),
+  check("media_assets_size_positive", sql`${table.sizeBytes} > 0`),
+]);
+
+export const mediaEvents = pgTable("media_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  senderUserId: uuid("sender_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  groupId: uuid("group_id").notNull().references(() => groups.id, { onDelete: "cascade" }),
+  targetUserId: uuid("target_user_id").references(() => users.id, { onDelete: "cascade" }),
+  assetId: uuid("asset_id").notNull().references(() => mediaAssets.id, { onDelete: "cascade" }),
+  protocolVersion: integer("protocol_version").default(1).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+}, (table) => [
+  index("media_events_group_created_at_index").on(table.groupId, table.createdAt),
+  index("media_events_asset_id_index").on(table.assetId),
+  index("media_events_expires_at_index").on(table.expiresAt),
+]);
+
+export const mediaDeliveries = pgTable("media_deliveries", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  eventId: uuid("event_id").notNull().references(() => mediaEvents.id, { onDelete: "cascade" }),
+  deviceId: uuid("device_id").notNull().references(() => devices.id, { onDelete: "cascade" }),
+  attempts: integer("attempts").default(0).notNull(),
+  lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+  acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+  failureCode: text("failure_code"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("media_deliveries_event_device_unique").on(table.eventId, table.deviceId),
+  index("media_deliveries_device_pending_index").on(table.deviceId, table.acknowledgedAt),
+  index("media_deliveries_event_index").on(table.eventId),
+]);
+
 export const userStatuses = pgTable("user_statuses", {
   userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
   status: text("status").notNull(),
