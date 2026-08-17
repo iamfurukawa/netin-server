@@ -19,7 +19,7 @@ test("normalizes an image into a Netin-sized JPEG with integrity metadata", asyn
 });
 
 test("rejects unsupported upload media types", async () => {
-  await assert.rejects(() => normalizeMedia(Buffer.from("not an image"), "video/mp4"), UnsupportedMediaError);
+  await assert.rejects(() => normalizeMedia(Buffer.from("not an image"), "application/pdf"), UnsupportedMediaError);
 });
 
 test("normalizes GIF uploads into an ESP32-compatible GIF", async () => {
