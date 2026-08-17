@@ -26,7 +26,7 @@ export class MediaStorage {
   }
 
   private pathFor(key: string) {
-    if (!/^[a-f0-9-]+\.jpg$/i.test(key)) throw new Error("invalid_media_storage_key");
+    if (!/^[a-f0-9-]+\.(jpg|gif)$/i.test(key)) throw new Error("invalid_media_storage_key");
     return join(this.root, key);
   }
 }

@@ -7,12 +7,33 @@ import { authenticateDeviceCredential, DeviceAuthenticationError } from "../devi
 import { findActiveGroup, isGroupMember } from "../groups/group.repository.js";
 import { createMediaAsset, createMediaDeliveriesForGroup, createMediaDeliveriesForUser, createMediaEvent, mediaAssetForDeviceDelivery, mediaAssetForOwner } from "./media.repository.js";
 import { sendMediaSchema } from "./media.schemas.js";
-import { MediaProcessingError, MediaTooLargeError, normalizePhoto, UnsupportedMediaError } from "./media.service.js";
+import { MediaProcessingError, MediaTooLargeError, normalizeMedia, UnsupportedMediaError } from "./media.service.js";
 import type { MediaStorage } from "./media.storage.js";
 
 const sessionCookie = "netin_session";
 const mediaLifetimeMs = 7 * 24 * 60 * 60 * 1000;
+const maxOriginalMediaBytes = 10 * 1024 * 1024;
 export type MediaDeliveryPublisher = { publishPendingMediaDeliveries(): Promise<void> };
+
+async function giphyGif(giphyId: string) {
+  if (!/^[a-zA-Z0-9]+$/.test(giphyId)) throw new UnsupportedMediaError();
+  const response = await fetch(`https://media.giphy.com/media/${giphyId}/giphy.gif`, { signal: AbortSignal.timeout(15_000) });
+  if (!response.ok || !response.headers.get("content-type")?.startsWith("image/gif")) throw new MediaProcessingError();
+  const length = Number(response.headers.get("content-length"));
+  if (Number.isFinite(length) && length > maxOriginalMediaBytes) throw new MediaTooLargeError();
+  const reader = response.body?.getReader();
+  if (!reader) throw new MediaProcessingError();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.length;
+    if (size > maxOriginalMediaBytes) throw new MediaTooLargeError();
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks);
+}
 
 export async function registerMediaRoutes(app: FastifyInstance, database: Database, storage: MediaStorage, publisher?: MediaDeliveryPublisher) {
   async function authenticatedUser(request: FastifyRequest, reply: FastifyReply) {
@@ -32,18 +53,18 @@ export async function registerMediaRoutes(app: FastifyInstance, database: Databa
     if (!upload) return reply.code(400).send({ error: "media_file_required" });
     try {
       const original = await upload.toBuffer();
-      const photo = await normalizePhoto(original, upload.mimetype);
-      const storageKey = `${randomUUID()}.jpg`;
-      await storage.put(storageKey, photo.content);
+      const media = await normalizeMedia(original, upload.mimetype);
+      const storageKey = `${randomUUID()}${media.mimeType === "image/gif" ? ".gif" : ".jpg"}`;
+      await storage.put(storageKey, media.content);
       try {
         const asset = await createMediaAsset(database, {
           ownerUserId: user.id,
           originalMimeType: upload.mimetype,
-          processedMimeType: "image/jpeg",
-          width: photo.width,
-          height: photo.height,
-          sizeBytes: photo.content.length,
-          sha256: photo.sha256,
+          processedMimeType: media.mimeType,
+          width: media.width,
+          height: media.height,
+          sizeBytes: media.content.length,
+          sha256: media.sha256,
           storageKey,
           processingState: "ready",
           expiresAt: new Date(Date.now() + mediaLifetimeMs),
@@ -61,6 +82,37 @@ export async function registerMediaRoutes(app: FastifyInstance, database: Databa
       if (error instanceof UnsupportedMediaError) return reply.code(415).send({ error: "unsupported_media_type" });
       if (error instanceof MediaTooLargeError) return reply.code(413).send({ error: "media_too_large" });
       if (error instanceof MediaProcessingError) return reply.code(422).send({ error: "invalid_media" });
+      throw error;
+    }
+  });
+
+  app.post("/media/giphy/:giphyId", async (request, reply) => {
+    const user = await authenticatedUser(request, reply);
+    if (!user) return;
+    try {
+      const original = await giphyGif((request.params as { giphyId: string }).giphyId);
+      const media = await normalizeMedia(original, "image/gif");
+      const storageKey = `${randomUUID()}.gif`;
+      await storage.put(storageKey, media.content);
+      try {
+        const asset = await createMediaAsset(database, {
+          ownerUserId: user.id, originalMimeType: "image/gif", processedMimeType: media.mimeType,
+          width: media.width, height: media.height, sizeBytes: media.content.length, sha256: media.sha256,
+          storageKey, processingState: "ready", expiresAt: new Date(Date.now() + mediaLifetimeMs),
+        });
+        return reply.code(201).send({ asset: {
+          id: asset.id, kind: asset.processedMimeType, width: asset.width, height: asset.height,
+          size: asset.sizeBytes, sha256: asset.sha256, state: asset.processingState, createdAt: asset.createdAt,
+          downloadPath: `/media/${asset.id}/download`,
+        } });
+      } catch (error) {
+        await storage.remove(storageKey);
+        throw error;
+      }
+    } catch (error) {
+      if (error instanceof UnsupportedMediaError) return reply.code(400).send({ error: "invalid_giphy_gif" });
+      if (error instanceof MediaTooLargeError) return reply.code(413).send({ error: "media_too_large" });
+      if (error instanceof MediaProcessingError) return reply.code(422).send({ error: "invalid_giphy_gif" });
       throw error;
     }
   });
