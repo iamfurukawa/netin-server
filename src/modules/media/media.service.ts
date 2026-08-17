@@ -38,7 +38,7 @@ export async function normalizeMedia(content: Buffer, mimeType: string): Promise
     // mozjpeg-specific optimizations and progressive scans in delivered media.
     const isGif = mimeType === "image/gif";
     const processed = isGif
-      ? await image.gif({ colours: 64, effort: 6, dither: 0 }).toBuffer()
+      ? await image.gif({ colours: 128, effort: 6, dither: 0 }).toBuffer()
       : await image.jpeg({ quality: 80, progressive: false, mozjpeg: false, chromaSubsampling: "4:2:0" }).toBuffer();
     if (processed.length > (isGif ? maxProcessedGifBytes : maxProcessedPhotoBytes)) throw new MediaTooLargeError();
     const metadata = await sharp(processed, { animated: isGif }).metadata();
