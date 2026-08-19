@@ -10,6 +10,7 @@ import { registerGroupRoutes } from "./modules/groups/group.routes.js";
 import { registerSocialRoutes } from "./modules/social/social.routes.js";
 import { registerStatusRoutes } from "./modules/status/status.routes.js";
 import { registerMediaRoutes } from "./modules/media/media.routes.js";
+import { registerReactionRoutes } from "./modules/reactions/reaction.routes.js";
 import { createMediaStorage } from "./modules/media/media.storage.js";
 import { createStatusSynchronizer } from "./modules/status/status_sync.js";
 import type { Environment } from "./config.js";
@@ -40,6 +41,7 @@ export function createApp(
     await registerAuthRoutes(instance, database, environment);
     await registerDeviceRoutes(instance, database, mqttProvisioner);
     await registerGroupRoutes(instance, database);
+    await registerReactionRoutes(instance, database);
     await registerSocialRoutes(instance, database, statusSynchronizer);
     await registerStatusRoutes(instance, database, statusSynchronizer);
     await registerMediaRoutes(instance, database, mediaStorage, statusSynchronizer);

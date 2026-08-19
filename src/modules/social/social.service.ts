@@ -2,12 +2,14 @@ import type { Database } from "../../db/client.js";
 import { findActiveGroup, isGroupMember } from "../groups/group.repository.js";
 import { cancelPendingDeliveriesForUser, createDeliveriesForGroupEvent, createDeliveriesForUserEvent, createSocialEvent, getSocialPreferences, removeCompletedEvent, setSocialPreferences } from "./social.repository.js";
 import { cancelPendingMediaDeliveriesForUser } from "../media/media.repository.js";
+import { activeReactionById, ReactionInactiveError, ReactionNotFoundError } from "../reactions/reaction.service.js";
 import type { z } from "zod";
 import type { sendGroupInteractionSchema } from "./social.schemas.js";
 
 export class SocialGroupNotFoundError extends Error {}
 export class GroupMembershipRequiredError extends Error {}
 export class InvalidPokeTargetError extends Error {}
+export { ReactionInactiveError, ReactionNotFoundError };
 
 export type SocialDeliveryPublisher = { publishPendingSocialDeliveries(): Promise<void> };
 
@@ -40,7 +42,9 @@ export async function sendGroupInteraction(database: Database, senderUserId: str
   if (input.type === "poke" && input.targetUserId && (input.targetUserId === senderUserId || !await isGroupMember(database, groupId, input.targetUserId))) {
     throw new InvalidPokeTargetError();
   }
-  const payload = input.type === "reaction" ? { reaction: input.reaction } : input.type === "message" ? { text: input.text } : {};
+  const payload = input.type === "reaction"
+    ? { reactionId: input.reactionId, reaction: (await activeReactionById(database, input.reactionId)).emoji }
+    : input.type === "message" ? { text: input.text } : {};
   const event = await createSocialEvent(database, {
     senderUserId,
     groupId,
