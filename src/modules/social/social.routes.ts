@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { ZodError } from "zod";
 
 import type { Database } from "../../db/client.js";
 import { currentUser } from "../auth/auth.service.js";
@@ -42,6 +43,7 @@ export async function registerSocialRoutes(app: FastifyInstance, database: Datab
       if (error instanceof InvalidPokeTargetError) return reply.code(400).send({ error: "invalid_poke_target" });
       if (error instanceof ReactionNotFoundError) return reply.code(404).send({ error: "reaction_not_found" });
       if (error instanceof ReactionInactiveError) return reply.code(409).send({ error: "reaction_inactive" });
+      if (error instanceof ZodError) return reply.code(400).send({ error: "invalid_interaction" });
       throw error;
     }
   });

@@ -122,8 +122,12 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
     const unmuted = await app.inject({ method: "PUT", url: "/social-preferences", headers: { cookie: registrationCookie }, payload: { muted: false } });
     assert.deepEqual(unmuted.json(), { muted: false });
 
+    const catalog = await app.inject({ method: "GET", url: "/reactions", headers: { cookie: registrationCookie } });
+    assert.equal(catalog.statusCode, 200);
+    const reactions = new Map(catalog.json().reactions.map((reaction: { id: string; emoji: string }) => [reaction.emoji, reaction.id]));
+
     const reaction = await app.inject({
-      method: "POST", url: `/groups/${groupId}/interactions`, headers: { cookie: registrationCookie }, payload: { type: "reaction", reaction: "🎉" },
+      method: "POST", url: `/groups/${groupId}/interactions`, headers: { cookie: registrationCookie }, payload: { type: "reaction", reactionId: reactions.get("🎉") },
     });
     assert.equal(reaction.statusCode, 202);
     assert.match(reaction.json().eventId, /^[0-9a-f-]{36}$/i);
@@ -192,7 +196,7 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
     assert.equal(listed.json().devices[0].hardwareTarget, "esp32-2432s024");
 
     const deliveredReaction = await app.inject({
-      method: "POST", url: `/groups/${groupId}/interactions`, headers: { cookie: registrationCookie }, payload: { type: "reaction", reaction: "👏" },
+      method: "POST", url: `/groups/${groupId}/interactions`, headers: { cookie: registrationCookie }, payload: { type: "reaction", reactionId: reactions.get("👏") },
     });
     assert.equal(deliveredReaction.statusCode, 202);
     assert.equal(deliveredReaction.json().recipients, 1);
