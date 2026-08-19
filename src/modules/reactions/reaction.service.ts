@@ -15,15 +15,15 @@ export function allReactions(database: Database) {
 export async function activeReactionById(database: Database, id: string) {
   const reaction = await reactionById(database, id);
   if (!reaction) throw new ReactionNotFoundError();
-  if (!reaction.isActive) throw new ReactionInactiveError();
+  if (!reaction.isActive || !reaction.assetStorageKey) throw new ReactionInactiveError();
   return reaction;
 }
 
-export function addReaction(database: Database, input: { name: string; emoji: string; displayOrder: number; isActive: boolean }) {
+export function addReaction(database: Database, input: { name: string; displayOrder: number; isActive: boolean; assetMimeType: "image/jpeg" | "image/gif"; assetSizeBytes: number; assetSha256: string; assetStorageKey: string }) {
   return createReaction(database, input);
 }
 
-export async function editReaction(database: Database, id: string, input: Partial<{ name: string; emoji: string; displayOrder: number; isActive: boolean }>) {
+export async function editReaction(database: Database, id: string, input: Partial<{ name: string; displayOrder: number; isActive: boolean; assetMimeType: "image/jpeg" | "image/gif"; assetSizeBytes: number; assetSha256: string; assetStorageKey: string }>) {
   const reaction = await updateReaction(database, id, input);
   if (!reaction) throw new ReactionNotFoundError();
   return reaction;

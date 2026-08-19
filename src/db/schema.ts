@@ -87,6 +87,10 @@ export const reactionCatalog = pgTable("reaction_catalog", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
   emoji: text("emoji").notNull(),
+  assetMimeType: text("asset_mime_type"),
+  assetSizeBytes: integer("asset_size_bytes"),
+  assetSha256: text("asset_sha256"),
+  assetStorageKey: text("asset_storage_key"),
   displayOrder: integer("display_order").default(0).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -95,7 +99,7 @@ export const reactionCatalog = pgTable("reaction_catalog", {
   uniqueIndex("reaction_catalog_name_unique").on(table.name),
   index("reaction_catalog_active_order_index").on(table.isActive, table.displayOrder),
   check("reaction_catalog_name_length", sql`char_length(${table.name}) BETWEEN 1 AND 32`),
-  check("reaction_catalog_emoji_length", sql`char_length(${table.emoji}) BETWEEN 1 AND 16`),
+  check("reaction_catalog_asset_complete", sql`(${table.assetMimeType} IS NULL AND ${table.assetSizeBytes} IS NULL AND ${table.assetSha256} IS NULL AND ${table.assetStorageKey} IS NULL) OR (${table.assetMimeType} IN ('image/jpeg', 'image/gif') AND ${table.assetSizeBytes} > 0 AND char_length(${table.assetSha256}) = 64 AND ${table.assetStorageKey} IS NOT NULL)`),
 ]);
 
 export const socialEvents = pgTable("social_events", {

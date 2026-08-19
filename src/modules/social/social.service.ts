@@ -43,7 +43,7 @@ export async function sendGroupInteraction(database: Database, senderUserId: str
     throw new InvalidPokeTargetError();
   }
   const payload = input.type === "reaction"
-    ? { reactionId: input.reactionId, reaction: (await activeReactionById(database, input.reactionId)).emoji }
+    ? { reactionId: input.reactionId }
     : input.type === "message" ? { text: input.text } : {};
   const event = await createSocialEvent(database, {
     senderUserId,

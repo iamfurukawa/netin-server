@@ -92,6 +92,13 @@
       "when": 1787106912924,
       "tag": "0012_flashy_jack_murdock",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1787182644626,
+      "tag": "0013_mature_the_stranger",
+      "breakpoints": true
     }
   ]
 }

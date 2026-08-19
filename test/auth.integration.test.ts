@@ -6,7 +6,7 @@ import type { Environment } from "../src/config.js";
 import { createDatabase } from "../src/db/client.js";
 import { runMigrations } from "../src/db/migrate.js";
 import { eq } from "drizzle-orm";
-import { devices, groupMembers, groups, mediaAssets, pairingCodes, sessions, socialEvents, socialPreferences, statusEvents, userStatuses, users } from "../src/db/schema.js";
+import { devices, groupMembers, groups, mediaAssets, pairingCodes, reactionCatalog, sessions, socialEvents, socialPreferences, statusEvents, userStatuses, users } from "../src/db/schema.js";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 
@@ -34,6 +34,7 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
   await database.db.delete(userStatuses);
   await database.db.delete(mediaAssets);
   await database.db.delete(socialEvents);
+  await database.db.delete(reactionCatalog);
   await database.db.delete(socialPreferences);
   await database.db.delete(groupMembers);
   await database.db.delete(groups);
@@ -41,6 +42,10 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
   await database.db.delete(devices);
   await database.db.delete(sessions);
   await database.db.delete(users);
+  await database.db.insert(reactionCatalog).values([
+    { name: "Festa", emoji: "?", displayOrder: 10, assetMimeType: "image/jpeg", assetSizeBytes: 1, assetSha256: "a".repeat(64), assetStorageKey: "00000000-0000-0000-0000-000000000001.jpg" },
+    { name: "Palmas", emoji: "?", displayOrder: 20, assetMimeType: "image/jpeg", assetSizeBytes: 1, assetSha256: "b".repeat(64), assetStorageKey: "00000000-0000-0000-0000-000000000002.jpg" },
+  ]);
   const app = createApp(environment, database);
 
   try {
@@ -124,10 +129,10 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
 
     const catalog = await app.inject({ method: "GET", url: "/reactions", headers: { cookie: registrationCookie } });
     assert.equal(catalog.statusCode, 200);
-    const reactions = new Map(catalog.json().reactions.map((reaction: { id: string; emoji: string }) => [reaction.emoji, reaction.id]));
+    const reactions = new Map(catalog.json().reactions.map((reaction: { id: string; name: string }) => [reaction.name, reaction.id]));
 
     const reaction = await app.inject({
-      method: "POST", url: `/groups/${groupId}/interactions`, headers: { cookie: registrationCookie }, payload: { type: "reaction", reactionId: reactions.get("🎉") },
+      method: "POST", url: `/groups/${groupId}/interactions`, headers: { cookie: registrationCookie }, payload: { type: "reaction", reactionId: reactions.get("Festa") },
     });
     assert.equal(reaction.statusCode, 202);
     assert.match(reaction.json().eventId, /^[0-9a-f-]{36}$/i);
@@ -196,7 +201,7 @@ test("authentication persists and revokes sessions", { skip: !testDatabaseUrl },
     assert.equal(listed.json().devices[0].hardwareTarget, "esp32-2432s024");
 
     const deliveredReaction = await app.inject({
-      method: "POST", url: `/groups/${groupId}/interactions`, headers: { cookie: registrationCookie }, payload: { type: "reaction", reactionId: reactions.get("👏") },
+      method: "POST", url: `/groups/${groupId}/interactions`, headers: { cookie: registrationCookie }, payload: { type: "reaction", reactionId: reactions.get("Palmas") },
     });
     assert.equal(deliveredReaction.statusCode, 202);
     assert.equal(deliveredReaction.json().recipients, 1);

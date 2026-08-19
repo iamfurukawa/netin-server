@@ -41,7 +41,7 @@ export function createApp(
     await registerAuthRoutes(instance, database, environment);
     await registerDeviceRoutes(instance, database, mqttProvisioner);
     await registerGroupRoutes(instance, database);
-    await registerReactionRoutes(instance, database);
+    await registerReactionRoutes(instance, database, mediaStorage);
     await registerSocialRoutes(instance, database, statusSynchronizer);
     await registerStatusRoutes(instance, database, statusSynchronizer);
     await registerMediaRoutes(instance, database, mediaStorage, statusSynchronizer);
