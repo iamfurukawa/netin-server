@@ -1,6 +1,6 @@
 # Netin Server
 
-Backend da Fase 2: API Fastify, PostgreSQL e broker Mosquitto para os dispositivos Netin.
+Backend da Fase 2: API Fastify, PostgreSQL e broker Mosquitto para os dispositivos GLaDOS.
 
 ## Arquitetura
 
@@ -26,7 +26,7 @@ Em produção o deploy executa apenas `npm run migrate`, nunca gera migrações.
 
 ## Estado atual
 
-- `GET /health` está implementado e publicado em `https://netin-server.13997906387.xyz/health`.
+- `GET /health` está implementado e publicado em `https://glados-server.13997906387.xyz/health`.
 - O broker Mosquitto de produção está em Compose separado, com autenticação e ACL.
 - Autenticação por e-mail/senha, pareamento, status e sincronização MQTT estão implementados. Fotos podem ser normalizadas e armazenadas de forma privada; a entrega MQTT de mídia está preparada para a próxima integração do firmware.
 - As credenciais MQTT individuais e revogáveis estão preparadas no servidor, mas dependem da ativação do Dynamic Security no Mosquitto. Veja `docs/mqtt-dynamic-security.md`.
@@ -50,12 +50,12 @@ O deploy usa a rede Docker externa `nginxnet`, o PostgreSQL já existente no hos
 1. Crie o banco/usuário `netin` no PostgreSQL existente e copie `.env.production.example` para `.env.production` com senhas fortes. A URL deve usar o hostname Docker `postgres`, por exemplo `postgresql://netin:SENHA@postgres:5432/netin`.
 2. O Mosquitto usa Dynamic Security. Antes de subir o broker pela primeira vez, siga `docs/mqtt-dynamic-security.md` para inicializar o administrador, os papéis e as credenciais internas.
 3. Clone este repositório em `/srv/netin-server` e mantenha `.env.production` e `secrets/` somente na Raspberry.
-   Para entrega de mídia, inclua `PUBLIC_API_URL=https://netin-server.13997906387.xyz` e mantenha `MEDIA_STORAGE_PATH=/app/data/media`; o Compose preserva esse diretório no volume `netin_media_data`.
+   Para entrega de mídia, inclua `PUBLIC_API_URL=https://glados-server.13997906387.xyz` e mantenha `MEDIA_STORAGE_PATH=/app/data/media`; o Compose preserva esse diretório no volume `netin_media_data`.
 4. Adicione no `nginx.conf` as rotas abaixo e habilite proxy WebSocket com HTTP/1.1:
 
    ```nginx
-   netin-server.13997906387.xyz  netin-server:3000;
-   netin-mqtt.13997906387.xyz    mosquitto:9001;
+   glados-server.13997906387.xyz  netin-server:3000;
+   glados-mqtt.13997906387.xyz    mosquitto:9001;
    ```
 
    O nome resolvido no Nginx é o serviço Compose `mosquitto`; `netin-mosquitto` é apenas o nome do container.
@@ -64,9 +64,9 @@ O deploy usa a rede Docker externa `nginxnet`, o PostgreSQL já existente no hos
 
 Depois de configurar o GitHub Actions Runner, pushes na `main` executam testes e chamam `scripts/deploy-production.sh` na Raspberry. O script só aceita um checkout sem alterações locais (o `.env.production` local é a exceção), atualiza com `git pull --ff-only`, recria somente o container da API e valida `GET /health` dentro do container `netin-server`. O Mosquitto é gerenciado pelo Compose separado e não reinicia durante deploys da API.
 
-O Cloudflare Tunnel já encaminha o hostname curinga para o Nginx. Portanto, não é preciso expor portas no roteador: o ESP32 se conectará por `wss://netin-mqtt.13997906387.xyz/mqtt`.
+O Cloudflare Tunnel já encaminha o hostname curinga para o Nginx. Portanto, não é preciso expor portas no roteador: o ESP32 se conectará por `wss://glados-mqtt.13997906387.xyz/mqtt`.
 
-Os hosts públicos devem ter somente um nível antes do domínio (`netin-server`, `netin-mqtt` e `netin`). O certificado Universal SSL do Cloudflare não cobre nomes como `netin.server.13997906387.xyz`.
+Os hosts públicos devem ter somente um nível antes do domínio (`glados-server`, `glados-mqtt` e `glados`). O certificado Universal SSL do Cloudflare não cobre nomes como `glados.server.13997906387.xyz`.
 
 ### Docker rootless e estado do Mosquitto
 
@@ -92,4 +92,4 @@ abaixo. A sessão é um cookie `netin_session` `HttpOnly`, `Secure` em produçã
 | `GET /auth/me` | nenhum | retorna o usuário da sessão; `401` sem sessão válida. |
 
 As chamadas da PWA devem usar `credentials: "include"`. O CORS de produção deve
-continuar restrito a `https://netin.13997906387.xyz`.
+continuar restrito a `https://glados.13997906387.xyz`.
