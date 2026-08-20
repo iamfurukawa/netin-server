@@ -14,6 +14,11 @@ export async function mediaAssetForOwner(database: Database, assetId: string, ow
   return asset ?? null;
 }
 
+export async function mediaAssetById(database: Database, assetId: string) {
+  const [asset] = await database.select().from(mediaAssets).where(eq(mediaAssets.id, assetId));
+  return asset ?? null;
+}
+
 export async function createMediaEvent(database: Database, input: typeof mediaEvents.$inferInsert) {
   const [event] = await database.insert(mediaEvents).values(input).returning();
   return event;

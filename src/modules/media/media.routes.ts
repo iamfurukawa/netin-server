@@ -5,7 +5,7 @@ import type { Database } from "../../db/client.js";
 import { currentUser } from "../auth/auth.service.js";
 import { authenticateDeviceCredential, DeviceAuthenticationError } from "../devices/device.service.js";
 import { findActiveGroup, isGroupMember } from "../groups/group.repository.js";
-import { createMediaAsset, createMediaDeliveriesForGroup, createMediaDeliveriesForUser, createMediaEvent, deleteMediaAssets, expiredMediaAssets, mediaAssetForDeviceDelivery, mediaAssetForOwner, mediaStorageOverview } from "./media.repository.js";
+import { createMediaAsset, createMediaDeliveriesForGroup, createMediaDeliveriesForUser, createMediaEvent, deleteMediaAssets, expiredMediaAssets, mediaAssetById, mediaAssetForDeviceDelivery, mediaAssetForOwner, mediaStorageOverview } from "./media.repository.js";
 import { sendMediaSchema } from "./media.schemas.js";
 import { MediaProcessingError, MediaTooLargeError, normalizeMedia, UnsupportedMediaError } from "./media.service.js";
 import type { MediaStorage } from "./media.storage.js";
@@ -64,6 +64,14 @@ export async function registerMediaRoutes(app: FastifyInstance, database: Databa
       totalBytes: overview.totalBytes,
       assets: overview.assets.map((asset) => ({ ...asset, expired: asset.expiresAt <= new Date() })),
     };
+  });
+
+  app.get("/admin/storage/media/:assetId/preview", async (request, reply) => {
+    if (!await administrator(request, reply)) return;
+    const asset = await mediaAssetById(database, (request.params as { assetId: string }).assetId);
+    if (!asset || asset.processingState !== "ready") return reply.code(404).send({ error: "media_not_found" });
+    reply.type(asset.processedMimeType).header("Content-Length", asset.sizeBytes).header("Cache-Control", "private, no-store");
+    return reply.send(storage.stream(asset.storageKey));
   });
 
   app.post("/admin/storage/media/purge-expired", async (request, reply) => {
