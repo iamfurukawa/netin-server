@@ -1,4 +1,4 @@
-import { and, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, lt, or, sql } from "drizzle-orm";
 
 import type { Database } from "../../db/client.js";
 import { devices, groupMembers, mediaAssets, mediaDeliveries, mediaEvents, socialPreferences, users } from "../../db/schema.js";
@@ -80,4 +80,31 @@ export async function cancelPendingMediaDeliveriesForUser(database: Database, us
     .innerJoin(mediaEvents, eq(mediaEvents.id, mediaDeliveries.eventId))
     .where(and(inArray(mediaDeliveries.deviceId, deviceIds), isNull(mediaDeliveries.acknowledgedAt), groupId ? eq(mediaEvents.groupId, groupId) : undefined));
   if (rows.length) await database.delete(mediaDeliveries).where(inArray(mediaDeliveries.id, rows.map((row) => row.id)));
+}
+
+export async function mediaStorageOverview(database: Database) {
+  const [summary] = await database.select({
+    count: sql<number>`count(*)`,
+    totalBytes: sql<number>`coalesce(sum(${mediaAssets.sizeBytes}), 0)`,
+  }).from(mediaAssets);
+  const assets = await database.select({
+    id: mediaAssets.id,
+    ownerName: users.displayName,
+    mimeType: mediaAssets.processedMimeType,
+    sizeBytes: mediaAssets.sizeBytes,
+    processingState: mediaAssets.processingState,
+    createdAt: mediaAssets.createdAt,
+    expiresAt: mediaAssets.expiresAt,
+  }).from(mediaAssets).innerJoin(users, eq(users.id, mediaAssets.ownerUserId))
+    .orderBy(desc(mediaAssets.createdAt)).limit(100);
+  return { count: Number(summary?.count ?? 0), totalBytes: Number(summary?.totalBytes ?? 0), assets };
+}
+
+export async function expiredMediaAssets(database: Database) {
+  return database.select({ id: mediaAssets.id, storageKey: mediaAssets.storageKey, sizeBytes: mediaAssets.sizeBytes })
+    .from(mediaAssets).where(lt(mediaAssets.expiresAt, new Date()));
+}
+
+export async function deleteMediaAssets(database: Database, assetIds: string[]) {
+  if (assetIds.length) await database.delete(mediaAssets).where(inArray(mediaAssets.id, assetIds));
 }

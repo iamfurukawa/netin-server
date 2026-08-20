@@ -5,7 +5,7 @@ import type { Database } from "../../db/client.js";
 import { currentUser } from "../auth/auth.service.js";
 import { authenticateDeviceCredential, DeviceAuthenticationError } from "../devices/device.service.js";
 import { findActiveGroup, isGroupMember } from "../groups/group.repository.js";
-import { createMediaAsset, createMediaDeliveriesForGroup, createMediaDeliveriesForUser, createMediaEvent, mediaAssetForDeviceDelivery, mediaAssetForOwner } from "./media.repository.js";
+import { createMediaAsset, createMediaDeliveriesForGroup, createMediaDeliveriesForUser, createMediaEvent, deleteMediaAssets, expiredMediaAssets, mediaAssetForDeviceDelivery, mediaAssetForOwner, mediaStorageOverview } from "./media.repository.js";
 import { sendMediaSchema } from "./media.schemas.js";
 import { MediaProcessingError, MediaTooLargeError, normalizeMedia, UnsupportedMediaError } from "./media.service.js";
 import type { MediaStorage } from "./media.storage.js";
@@ -45,6 +45,34 @@ export async function registerMediaRoutes(app: FastifyInstance, database: Databa
     }
     return user;
   }
+
+  async function administrator(request: FastifyRequest, reply: FastifyReply) {
+    const user = await authenticatedUser(request, reply);
+    if (!user) return null;
+    if (!user.isAdmin) {
+      reply.code(403).send({ error: "admin_required" });
+      return null;
+    }
+    return user;
+  }
+
+  app.get("/admin/storage/media", async (request, reply) => {
+    if (!await administrator(request, reply)) return;
+    const overview = await mediaStorageOverview(database);
+    return {
+      count: overview.count,
+      totalBytes: overview.totalBytes,
+      assets: overview.assets.map((asset) => ({ ...asset, expired: asset.expiresAt <= new Date() })),
+    };
+  });
+
+  app.post("/admin/storage/media/purge-expired", async (request, reply) => {
+    if (!await administrator(request, reply)) return;
+    const assets = await expiredMediaAssets(database);
+    for (const asset of assets) await storage.remove(asset.storageKey);
+    await deleteMediaAssets(database, assets.map((asset) => asset.id));
+    return { removed: assets.length, reclaimedBytes: assets.reduce((total, asset) => total + asset.sizeBytes, 0) };
+  });
 
   app.post("/media/photos", async (request, reply) => {
     const user = await authenticatedUser(request, reply);
