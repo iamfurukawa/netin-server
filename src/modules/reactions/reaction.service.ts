@@ -15,7 +15,7 @@ export function allReactions(database: Database) {
 export async function activeReactionById(database: Database, id: string) {
   const reaction = await reactionById(database, id);
   if (!reaction) throw new ReactionNotFoundError();
-  if (!reaction.isActive || !reaction.assetStorageKey) throw new ReactionInactiveError();
+  if (!reaction.isActive || !reaction.assetStorageKey || !reaction.assetMimeType || !reaction.assetSizeBytes || !reaction.assetSha256) throw new ReactionInactiveError();
   return reaction;
 }
 

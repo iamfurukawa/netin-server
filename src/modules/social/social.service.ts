@@ -42,8 +42,15 @@ export async function sendGroupInteraction(database: Database, senderUserId: str
   if (input.type === "poke" && input.targetUserId && (input.targetUserId === senderUserId || !await isGroupMember(database, groupId, input.targetUserId))) {
     throw new InvalidPokeTargetError();
   }
-  const payload = input.type === "reaction"
-    ? { reactionId: input.reactionId }
+  const reaction = input.type === "reaction" ? await activeReactionById(database, input.reactionId) : null;
+  const payload = reaction
+    ? {
+      reactionId: reaction.id,
+      reactionName: reaction.name,
+      kind: reaction.assetMimeType,
+      size: reaction.assetSizeBytes,
+      sha256: reaction.assetSha256,
+    }
     : input.type === "message" ? { text: input.text } : {};
   const event = await createSocialEvent(database, {
     senderUserId,

@@ -16,6 +16,20 @@ export type StatusPublisher = { publishStatus(userId: string, status: { status: 
 const deviceEventTopic = "netin/v1/devices/+/events";
 const protocolVersion = 1;
 
+function socialPayloadForDevice(payload: unknown, type: string, environment: Environment) {
+  if (type !== "reaction" || !payload || typeof payload !== "object") return payload;
+  const reaction = payload as { reactionId?: unknown; kind?: unknown; size?: unknown; sha256?: unknown; reactionName?: unknown };
+  if (typeof reaction.reactionId !== "string" || typeof reaction.kind !== "string" || typeof reaction.size !== "number" || typeof reaction.sha256 !== "string") return payload;
+  return {
+    reactionId: reaction.reactionId,
+    reactionName: typeof reaction.reactionName === "string" ? reaction.reactionName : "Reacao",
+    kind: reaction.kind,
+    size: reaction.size,
+    sha256: reaction.sha256,
+    downloadUrl: new URL(`/reactions/${reaction.reactionId}/asset`, environment.PUBLIC_API_URL).toString(),
+  };
+}
+
 export function createStatusSynchronizer(environment: Environment, database: Database, logger: FastifyBaseLogger): StatusPublisher & SocialDeliveryPublisher & MediaDeliveryPublisher & { start(): void; stop(): Promise<void> } {
   let client: MqttClient | null = null;
 
@@ -30,7 +44,7 @@ export function createStatusSynchronizer(environment: Environment, database: Dat
         eventId: delivery.eventId,
         sender: { name: delivery.senderName },
         interactionType: delivery.type,
-        payload: delivery.payload,
+        payload: socialPayloadForDevice(delivery.payload, delivery.type, environment),
         createdAt: delivery.createdAt.toISOString(),
       }), { qos: 1 }, (error) => error ? reject(error) : resolve()));
       await markDeliveryPublished(database, delivery.eventId, delivery.deviceId);
